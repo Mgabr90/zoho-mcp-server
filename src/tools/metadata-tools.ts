@@ -18,7 +18,45 @@ import {
 } from '../types';
 
 export class ZohoCRMMetadataTools {
+  private cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+  
   constructor(private crmClient: ZohoCRMClient) {}
+
+  /**
+   * Simple caching mechanism
+   */
+  private setCache(key: string, data: any, ttlMinutes: number = 30): void {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl: ttlMinutes * 60 * 1000
+    });
+  }
+
+  private getCache(key: string): any | null {
+    const cached = this.cache.get(key);
+    if (!cached) return null;
+    
+    if (Date.now() - cached.timestamp > cached.ttl) {
+      this.cache.delete(key);
+      return null;
+    }
+    
+    return cached.data;
+  }
+
+  /**
+   * Helper method to extract specific fields from a field object
+   */
+  private extractSpecificFields(field: any, fieldsToExtract: string[]): any {
+    const result: any = {};
+    fieldsToExtract.forEach(fieldName => {
+      if (field[fieldName] !== undefined) {
+        result[fieldName] = field[fieldName];
+      }
+    });
+    return result;
+  }
 
   /**
    * Get all CRM modules with their metadata
@@ -45,7 +83,7 @@ export class ZohoCRMMetadataTools {
   }
 
   /**
-   * Get all fields for a specific module with pagination and filtering
+   * Get all fields for a specific module with pagination, filtering, and response optimization
    */
   async getModuleFields(params: {
     module_name: string;
@@ -53,8 +91,11 @@ export class ZohoCRMMetadataTools {
     per_page?: number;
     field_type?: string;
     search_term?: string;
+    fields_only?: string[]; // Only return specified fields
+    exclude_system_fields?: boolean; // Exclude system fields
+    format?: 'minimal' | 'standard' | 'complete'; // Response format
   }): Promise<{
-    fields: ZohoCRMField[];
+    fields: any[];
     pagination: {
       page: number;
       per_page: number;
@@ -63,13 +104,19 @@ export class ZohoCRMMetadataTools {
     };
   }> {
     try {
-      const allFields = await this.crmClient.getFields(params.module_name);
+      const cacheKey = `fields_${params.module_name}`;
+      let allFields = this.getCache(cacheKey);
+      
+      if (!allFields) {
+        allFields = await this.crmClient.getFields(params.module_name);
+        this.setCache(cacheKey, allFields, 30); // Cache for 30 minutes
+      }
       
       let filteredFields = allFields;
       
       // Filter by field type if specified
       if (params.field_type) {
-        filteredFields = filteredFields.filter(field => {
+        filteredFields = filteredFields.filter((field: any) => {
           switch (params.field_type) {
             case 'picklist':
               return field.pick_list_values && field.pick_list_values.length > 0;
@@ -86,10 +133,15 @@ export class ZohoCRMMetadataTools {
       // Filter by search term if specified
       if (params.search_term) {
         const searchLower = params.search_term.toLowerCase();
-        filteredFields = filteredFields.filter(field => 
+        filteredFields = filteredFields.filter((field: any) => 
           field.api_name.toLowerCase().includes(searchLower) ||
           field.display_label.toLowerCase().includes(searchLower)
         );
+      }
+      
+      // Exclude system fields if requested
+      if (params.exclude_system_fields) {
+        filteredFields = filteredFields.filter((field: any) => field.custom_field !== false);
       }
       
       // Apply pagination
@@ -100,8 +152,39 @@ export class ZohoCRMMetadataTools {
       
       const paginatedFields = filteredFields.slice(startIndex, endIndex);
       
+      // Format response based on format parameter
+      let formattedFields;
+      const format = params.format || 'complete';
+      
+      if (format === 'minimal') {
+        formattedFields = paginatedFields.map((field: any) => ({
+          id: field.id,
+          api_name: field.api_name,
+          label: field.field_label,
+          type: field.data_type,
+          custom: field.custom_field,
+          ...(params.fields_only ? this.extractSpecificFields(field, params.fields_only) : {})
+        }));
+      } else if (format === 'standard') {
+        formattedFields = paginatedFields.map((field: any) => ({
+          id: field.id,
+          api_name: field.api_name,
+          label: field.field_label,
+          type: field.data_type,
+          custom: field.custom_field,
+          read_only: field.read_only,
+          mandatory: field.system_mandatory,
+          picklist_values: field.pick_list_values || [],
+          ...(params.fields_only ? this.extractSpecificFields(field, params.fields_only) : {})
+        }));
+      } else {
+        formattedFields = params.fields_only ? 
+          paginatedFields.map((field: any) => this.extractSpecificFields(field, params.fields_only!)) : 
+          paginatedFields;
+      }
+      
       return {
-        fields: paginatedFields,
+        fields: formattedFields,
         pagination: {
           page,
           per_page,
@@ -427,6 +510,132 @@ export class ZohoCRMMetadataTools {
   }
 
   /**
+   * Smart field discovery - finds fields based on intent with minimal response
+   */
+  async smartFieldDiscovery(params: {
+    module_name: string;
+    intent: string;
+    include_values?: boolean;
+    format?: 'minimal' | 'standard' | 'complete';
+    max_results?: number;
+  }): Promise<{
+    fields: any[];
+    summary: string;
+    total_found: number;
+  }> {
+    try {
+      const { module_name, intent, include_values = false, format = 'minimal', max_results = 10 } = params;
+      
+      // Get all fields for the module
+      const allFields = await this.crmClient.getFields(module_name);
+      
+      // Smart matching based on intent
+      const intentWords = intent.toLowerCase().split(/\s+/);
+      const matchedFields = allFields.filter((field: any) => {
+        const fieldText = `${field.field_label} ${field.api_name} ${field.data_type}`.toLowerCase();
+        return intentWords.some(word => fieldText.includes(word));
+      });
+
+      // Format response based on format parameter
+      let formattedFields;
+      if (format === 'minimal') {
+        formattedFields = matchedFields.slice(0, max_results).map((field: any) => ({
+          id: field.id,
+          api_name: field.api_name,
+          label: field.field_label,
+          type: field.data_type,
+          values: include_values && field.pick_list_values ? field.pick_list_values.map((v: any) => v.display_value) : undefined
+        }));
+      } else if (format === 'standard') {
+        formattedFields = matchedFields.slice(0, max_results).map((field: any) => ({
+          id: field.id,
+          api_name: field.api_name,
+          label: field.field_label,
+          type: field.data_type,
+          custom_field: field.custom_field,
+          values: include_values && field.pick_list_values ? field.pick_list_values : undefined,
+          dependencies: field.parent_field ? `Depends on ${field.parent_field}` : 'None'
+        }));
+      } else {
+        formattedFields = matchedFields.slice(0, max_results);
+      }
+
+      return {
+        fields: formattedFields,
+        summary: `Found ${matchedFields.length} fields matching "${intent}" in ${module_name}`,
+        total_found: matchedFields.length
+      };
+    } catch (error: any) {
+      throw new Error(`Smart field discovery failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Extract complete picklist hierarchy with dependencies in one call
+   */
+  async extractCompletePicklistHierarchy(params: {
+    module_name: string;
+    field_pattern?: string;
+    include_dependencies?: boolean;
+    output_format?: 'json' | 'csv' | 'structured';
+  }): Promise<any> {
+    try {
+      const { module_name, field_pattern = 'status|disposition|reason', include_dependencies = true, output_format = 'structured' } = params;
+      
+      // Get all fields and filter for picklist fields matching pattern
+      const allFields = await this.crmClient.getFields(module_name);
+      const pattern = new RegExp(field_pattern, 'i');
+      const picklistFields = allFields.filter((field: any) => 
+        field.data_type === 'picklist' && 
+        pattern.test(`${field.field_label} ${field.api_name}`)
+      );
+
+      const hierarchy = [];
+      
+      for (const field of picklistFields) {
+        const fieldData = {
+          field_name: (field as any).display_label,
+          api_name: field.api_name,
+          module: module_name,
+          values: field.pick_list_values || [],
+          dependencies: include_dependencies && (field as any).parent_field ? (field as any).parent_field : 'None',
+          custom_field: field.custom_field,
+          total_values: field.pick_list_values ? field.pick_list_values.length : 0
+        };
+
+        if (output_format === 'csv') {
+          // Convert to CSV format
+          field.pick_list_values?.forEach((value: any, index: number) => {
+            hierarchy.push({
+              Field_Name: (field as any).display_label,
+              API_Name: field.api_name,
+              Module: module_name,
+              Value_Display: value.display_value,
+              Value_Actual: value.actual_value,
+              Sequence: value.sequence_number,
+              Dependencies: include_dependencies && (field as any).parent_field ? (field as any).parent_field : 'None',
+              Custom_Field: field.custom_field,
+              Status: value.type
+            });
+          });
+        } else {
+          hierarchy.push(fieldData);
+        }
+      }
+
+      return {
+        data: hierarchy,
+        summary: `Extracted ${picklistFields.length} picklist fields from ${module_name}`,
+        total_fields: picklistFields.length,
+        total_values: hierarchy.length,
+        format: output_format
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to extract picklist hierarchy: ${error.message}`);
+    }
+  }
+
+  /**
    * Get comprehensive metadata summary for the entire CRM
    */
   async getCRMMetadataSummary(): Promise<{
@@ -545,6 +754,81 @@ export class ZohoCRMMetadataTools {
       );
     } catch (error: any) {
       throw new Error(`Failed to search fields in module ${params.module_name}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Semantic field search - find fields related to a concept (e.g., "disposition", "status", "reason")
+   */
+  async semanticFieldSearch(params: {
+    module_name: string;
+    concept: string;
+    include_custom_fields?: boolean;
+  }): Promise<{
+    exact_matches: ZohoCRMField[];
+    semantic_matches: ZohoCRMField[];
+    related_fields: ZohoCRMField[];
+  }> {
+    try {
+      const allFields = await this.crmClient.getFields(params.module_name);
+      const conceptLower = params.concept.toLowerCase();
+      
+      // Define semantic patterns for common concepts
+      const semanticPatterns: Record<string, string[]> = {
+        'disposition': ['disposition', 'reason', 'outcome', 'result', 'status'],
+        'status': ['status', 'stage', 'state', 'phase', 'condition'],
+        'reason': ['reason', 'cause', 'why', 'explanation', 'justification'],
+        'outcome': ['outcome', 'result', 'conclusion', 'end', 'final'],
+        'type': ['type', 'category', 'kind', 'classification', 'group'],
+        'source': ['source', 'origin', 'channel', 'medium', 'from']
+      };
+      
+      const patterns = semanticPatterns[conceptLower] || [conceptLower];
+      
+      const exactMatches: ZohoCRMField[] = [];
+      const semanticMatches: ZohoCRMField[] = [];
+      const relatedFields: ZohoCRMField[] = [];
+      
+      for (const field of allFields) {
+        if (params.include_custom_fields === false && field.custom_field) {
+          continue;
+        }
+        
+        const fieldName = field.api_name.toLowerCase();
+        const fieldLabel = field.display_label.toLowerCase();
+        
+        // Exact matches
+        if (fieldName.includes(conceptLower) || fieldLabel.includes(conceptLower)) {
+          exactMatches.push(field);
+        }
+        // Semantic matches
+        else if (patterns.some(pattern => 
+          fieldName.includes(pattern) || fieldLabel.includes(pattern)
+        )) {
+          semanticMatches.push(field);
+        }
+        // Related fields (picklist fields that might be related)
+        else if (field.data_type === 'picklist' && field.pick_list_values && field.pick_list_values.length > 0) {
+          // Check if picklist values contain relevant terms
+          const hasRelevantValues = field.pick_list_values.some(value => 
+            patterns.some(pattern => 
+              value.display_value.toLowerCase().includes(pattern) ||
+              value.actual_value.toLowerCase().includes(pattern)
+            )
+          );
+          if (hasRelevantValues) {
+            relatedFields.push(field);
+          }
+        }
+      }
+      
+      return {
+        exact_matches: exactMatches,
+        semantic_matches: semanticMatches,
+        related_fields: relatedFields
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to perform semantic field search in ${params.module_name}: ${error.message}`);
     }
   }
 
@@ -955,5 +1239,143 @@ export class ZohoCRMMetadataTools {
       return formula.includes(fieldName);
     }
     return false;
+  }
+
+  /**
+   * Get Global Set values by name - specifically for extracting complete disposition data
+   */
+  async getGlobalSetValues(params: {
+    global_set_name: string;
+    include_metadata?: boolean;
+  }): Promise<{
+    global_set_name: string;
+    values: Array<{
+      id: string;
+      display_value: string;
+      actual_value: string;
+      sequence_number: number;
+      colour_code?: string;
+      type?: string;
+    }>;
+    total_count: number;
+    metadata?: {
+      extraction_method: string;
+      source_module?: string;
+      field_id?: string;
+    };
+  }> {
+    try {
+      const { global_set_name, include_metadata = false } = params;
+      
+      // Use the new CRM client method to get global set values
+      const result = await this.crmClient.getGlobalSetValues(global_set_name);
+      
+      const response = {
+        global_set_name: result.global_set_name,
+        values: result.values,
+        total_count: result.total_count
+      };
+
+      if (include_metadata) {
+        (response as any).metadata = {
+          extraction_method: 'global_set_api',
+          extraction_timestamp: new Date().toISOString(),
+          total_values_found: result.total_count
+        };
+      }
+
+      return response;
+    } catch (error: any) {
+      throw new Error(`Failed to get global set values for ${params.global_set_name}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get complete disposition data including all Global Set values
+   */
+  async getCompleteDispositionData(params: {
+    module_name: string;
+    include_dependent_fields?: boolean;
+  }): Promise<{
+    module: string;
+    disposition_data: {
+      global_set_values: Array<{
+        id: string;
+        display_value: string;
+        actual_value: string;
+        sequence_number: number;
+        colour_code?: string;
+        type?: string;
+      }>;
+      dependent_fields: Array<{
+        field_name: string;
+        api_name: string;
+        values: Array<{
+          id: string;
+          display_value: string;
+          actual_value: string;
+          sequence_number: number;
+          colour_code?: string;
+          type?: string;
+        }>;
+      }>;
+    };
+    summary: {
+      total_global_set_values: number;
+      total_dependent_fields: number;
+      total_all_values: number;
+    };
+  }> {
+    try {
+      const { module_name, include_dependent_fields = true } = params;
+      
+      // Get Global Set values for "Disposition"
+      const globalSetResult = await this.getGlobalSetValues({
+        global_set_name: 'Disposition',
+        include_metadata: true
+      });
+      
+      // Get dependent fields (the separate reason fields)
+      const dependentFields = [];
+      if (include_dependent_fields) {
+        const reasonFields = [
+          'Reason_For_Not_Connected',
+          'Reason_For_Not_Interested', 
+          'Reason_For_Future_Lead'
+        ];
+        
+        for (const fieldName of reasonFields) {
+          try {
+            const fieldValues = await this.crmClient.getPicklistValues(module_name, fieldName);
+            dependentFields.push({
+              field_name: fieldName,
+              api_name: fieldName,
+              values: fieldValues.picklist_values || []
+            });
+          } catch (error) {
+            // Skip fields that don't exist or can't be accessed
+            console.warn(`Could not get values for field ${fieldName}: ${error}`);
+          }
+        }
+      }
+      
+      const totalAllValues = globalSetResult.total_count + 
+        dependentFields.reduce((sum, field) => sum + field.values.length, 0);
+      
+      return {
+        module: module_name,
+        disposition_data: {
+          global_set_values: globalSetResult.values,
+          dependent_fields: dependentFields
+        },
+        summary: {
+          total_global_set_values: globalSetResult.total_count,
+          total_dependent_fields: dependentFields.length,
+          total_all_values: totalAllValues
+        }
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to get complete disposition data for ${params.module_name}: ${error.message}`);
+    }
   }
 }

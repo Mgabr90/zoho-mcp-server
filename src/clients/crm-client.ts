@@ -576,6 +576,74 @@ export class ZohoCRMClient {
   }
 
   /**
+   * Get Global Set values by name
+   */
+  async getGlobalSetValues(globalSetName: string): Promise<{
+    global_set_name: string;
+    values: Array<{
+      id: string;
+      display_value: string;
+      actual_value: string;
+      sequence_number: number;
+      colour_code?: string;
+      type?: string;
+    }>;
+    total_count: number;
+  }> {
+    try {
+      // Try to get global sets from organization settings
+      const response = await this.axiosInstance.get('/settings/global_picklists');
+      
+      if (response.data && response.data.global_picklists) {
+        const globalSet = response.data.global_picklists.find(
+          (set: any) => set.name === globalSetName || set.display_label === globalSetName
+        );
+        
+        if (globalSet) {
+          return {
+            global_set_name: globalSetName,
+            values: globalSet.values || [],
+            total_count: globalSet.values?.length || 0
+          };
+        }
+      }
+      
+      // Fallback: Search through all modules for fields using this global set
+      const modules = await this.getModules();
+      let globalSetValues: any[] = [];
+      
+      for (const module of modules) {
+        try {
+          const fields = await this.getFields(module.api_name);
+          
+          // Find field that uses this global set
+          const globalSetField = fields.find(field => 
+            field.global_picklist && 
+            (field.global_picklist.name === globalSetName || 
+             field.global_picklist.display_label === globalSetName)
+          );
+          
+          if (globalSetField && globalSetField.pick_list_values) {
+            globalSetValues = globalSetField.pick_list_values;
+            break;
+          }
+        } catch (error) {
+          // Skip modules that can't be accessed
+          continue;
+        }
+      }
+      
+      return {
+        global_set_name: globalSetName,
+        values: globalSetValues,
+        total_count: globalSetValues.length
+      };
+    } catch (error) {
+      throw this.handleError(error, `Failed to get global set values for ${globalSetName}`);
+    }
+  }
+
+  /**
    * Get records from a module with enhanced pagination support
    */
   async getRecords(

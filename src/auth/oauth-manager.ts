@@ -93,13 +93,22 @@ export class ZohoAuthManager {
   /**
    * Get valid access token (refresh if needed)
    */
-  async getValidAccessToken(): Promise<string> {
+  async getValidAccessToken(retryCount = 0): Promise<string> {
     if (this.currentToken && Date.now() < this.tokenExpiry - 60000) {
       return this.currentToken;
     }
 
-    const tokenData = await this.refreshAccessToken();
-    return tokenData.access_token;
+    try {
+      const tokenData = await this.refreshAccessToken();
+      return tokenData.access_token;
+    } catch (error: any) {
+      if (retryCount < 2) {
+        // Retry up to 2 times with exponential backoff
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+        return this.getValidAccessToken(retryCount + 1);
+      }
+      throw error;
+    }
   }
 
   /**

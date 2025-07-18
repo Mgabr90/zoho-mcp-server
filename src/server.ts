@@ -207,7 +207,7 @@ export class ZohoMCPServer {
               properties: {
                 category: {
                   type: 'string',
-                  enum: ['Data Synchronization', 'Books - Customer Management', 'Books - Inventory Management', 'Books - Financial Documents', 'Books - Purchase Management', 'CRM - Activity Management', 'CRM - Analytics & Reporting', 'CRM - Administration', 'Configuration Management'],
+                  enum: ['Data Synchronization', 'Books - Customer Management', 'Books - Inventory Management', 'Books - Estimate Management', 'Books - Payment Processing', 'Books - Invoice Management', 'Books - Credit Note Management', 'Books - Purchase Order Management', 'Books - Bill Management', 'CRM - Activity Management', 'CRM - Calendar Management', 'CRM - Metadata & Analysis', 'Configuration Management', 'Tool Discovery'],
                   description: 'Category to list tools for'
                 }
               },
@@ -2065,6 +2065,76 @@ export class ZohoMCPServer {
             }
           },
           {
+            name: 'crm_semantic_field_search',
+            description: 'Semantic field search - find fields related to a concept (e.g., "disposition", "status", "reason")',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                module_name: { type: 'string', description: 'Name of the module' },
+                concept: { type: 'string', description: 'Concept to search for (e.g., "disposition", "status", "reason")' },
+                include_custom_fields: { type: 'boolean', description: 'Include custom fields in search (default: true)' }
+              },
+              required: ['module_name', 'concept']
+            }
+          },
+          {
+            name: 'crm_smart_field_discovery',
+            description: 'Smart field discovery - finds fields based on intent with optimized response format to reduce tokens and iterations',
+            inputSchema: {
+              type: 'object',
+              category: 'CRM - Metadata & Analysis',
+              properties: {
+                module_name: { type: 'string', description: 'Name of the module' },
+                intent: { type: 'string', description: 'Intent description (e.g., "status and disposition fields", "contact information")' },
+                include_values: { type: 'boolean', description: 'Include picklist values in response (default: false)' },
+                format: { type: 'string', enum: ['minimal', 'standard', 'complete'], description: 'Response format (minimal=lowest tokens, default: minimal)' },
+                max_results: { type: 'number', minimum: 1, maximum: 50, description: 'Maximum number of results (default: 10)' }
+              },
+              required: ['module_name', 'intent']
+            }
+          },
+          {
+            name: 'crm_extract_complete_picklist_hierarchy',
+            description: 'Extract complete picklist hierarchy with dependencies in one optimized call - reduces multiple API calls to single request',
+            inputSchema: {
+              type: 'object',
+              category: 'CRM - Metadata & Analysis',
+              properties: {
+                module_name: { type: 'string', description: 'Name of the module' },
+                field_pattern: { type: 'string', description: 'Regex pattern for field matching (default: "status|disposition|reason")' },
+                include_dependencies: { type: 'boolean', description: 'Include field dependencies (default: true)' },
+                output_format: { type: 'string', enum: ['json', 'csv', 'structured'], description: 'Output format (default: structured)' }
+              },
+              required: ['module_name']
+            }
+          },
+          {
+            name: 'crm_get_global_set_values',
+            description: 'Get Global Set values by name - specifically for extracting complete disposition data',
+            inputSchema: {
+              type: 'object',
+              category: 'CRM - Metadata & Analysis',
+              properties: {
+                global_set_name: { type: 'string', description: 'Name of the Global Set (e.g., "Disposition")' },
+                include_metadata: { type: 'boolean', description: 'Include extraction metadata (default: false)' }
+              },
+              required: ['global_set_name']
+            }
+          },
+          {
+            name: 'crm_get_complete_disposition_data',
+            description: 'Get complete disposition data including all Global Set values and dependent fields',
+            inputSchema: {
+              type: 'object',
+              category: 'CRM - Metadata & Analysis',
+              properties: {
+                module_name: { type: 'string', description: 'Name of the module (e.g., "Leads")' },
+                include_dependent_fields: { type: 'boolean', description: 'Include dependent reason fields (default: true)' }
+              },
+              required: ['module_name']
+            }
+          },
+          {
             name: 'crm_get_layouts',
             description: 'Get all layouts for modules',
             inputSchema: {
@@ -2666,48 +2736,6 @@ export class ZohoMCPServer {
               ]
             };
 
-          case 'list_tools_by_category':
-            const categoryMap = {
-              'Data Synchronization': ['sync_accounts_to_customers', 'sync_contacts_to_customers', 'sync_customers_to_contacts', 'create_invoice_from_deal', 'search_records'],
-              'Books - Customer Management': ['books_get_customers', 'books_get_customer', 'books_create_customer', 'books_update_customer', 'books_delete_customer'],
-              'Books - Inventory Management': ['books_get_items', 'books_get_item', 'books_create_item', 'books_update_item', 'books_delete_item'],
-              'Books - Financial Documents': ['books_get_invoices', 'books_get_invoice', 'books_create_invoice', 'books_update_invoice', 'books_delete_invoice', 'books_send_invoice_email', 'books_get_invoice_pdf', 'books_get_estimates', 'books_create_estimate', 'books_convert_estimate_to_invoice', 'books_get_payments', 'books_create_payment', 'books_get_credit_notes', 'books_get_credit_note', 'books_create_credit_note', 'books_update_credit_note', 'books_delete_credit_note'],
-              'CRM - Activity Management': ['crm_get_tasks', 'crm_create_task', 'crm_get_events', 'crm_create_event', 'crm_get_notes', 'crm_create_note', 'crm_send_email', 'crm_get_attachments'],
-              'CRM - Analytics & Reporting': ['analyze_custom_module', 'get_custom_module_records', 'analyze_module_field'],
-              'CRM - Administration': ['crm_get_all_modules', 'crm_get_module_details', 'crm_get_module_fields', 'crm_get_field_details', 'crm_get_layouts', 'crm_get_layout_details', 'crm_update_layout', 'crm_get_all_profiles', 'crm_create_profile', 'crm_update_profile', 'crm_get_all_roles', 'crm_get_role_details', 'crm_create_role', 'crm_update_role', 'crm_delete_role', 'crm_get_all_users', 'crm_get_user_details', 'crm_create_user'],
-              'Configuration Management': ['config_list_environments', 'config_switch_environment', 'config_list_profiles', 'config_switch_profile', 'config_add_profile', 'config_remove_profile', 'config_update_profile', 'config_get_status', 'config_export_to_env', 'config_add_environment', 'config_remove_environment']
-            };
-
-            const requestedCategory = args?.category;
-            const categoryTools = categoryMap[requestedCategory as keyof typeof categoryMap];
-            
-            if (!categoryTools) {
-              return {
-                content: [
-                  {
-                    type: 'text',
-                    text: JSON.stringify({
-                      error: 'Invalid category',
-                      available_categories: Object.keys(categoryMap)
-                    }, null, 2)
-                  }
-                ]
-              };
-            }
-
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify({
-                    category: requestedCategory,
-                    tools: categoryTools,
-                    tool_count: categoryTools.length,
-                    usage_tip: 'Use these tool names directly in your requests'
-                  }, null, 2)
-                }
-              ]
-            };
           case 'sync_accounts_to_customers':
             const syncParams = SyncParamsSchema.parse(args);
             const syncResult = await this.syncTools.syncAccountsToCustomers(syncParams);
@@ -3772,6 +3800,61 @@ export class ZohoMCPServer {
               ]
             };
 
+          case 'crm_semantic_field_search':
+            const semanticSearchResult = await this.metadataTools.semanticFieldSearch(args as { module_name: string; concept: string; include_custom_fields?: boolean });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(semanticSearchResult, null, 2)
+                }
+              ]
+            };
+
+          case 'crm_smart_field_discovery':
+            const smartDiscoveryResult = await this.metadataTools.smartFieldDiscovery(args as { module_name: string; intent: string; include_values?: boolean; format?: 'minimal' | 'standard' | 'complete'; max_results?: number });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(smartDiscoveryResult, null, 2)
+                }
+              ]
+            };
+
+          case 'crm_extract_complete_picklist_hierarchy':
+            const picklistHierarchyResult = await this.metadataTools.extractCompletePicklistHierarchy(args as { module_name: string; field_pattern?: string; include_dependencies?: boolean; output_format?: 'json' | 'csv' | 'structured' });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(picklistHierarchyResult, null, 2)
+                }
+              ]
+            };
+
+          case 'crm_get_global_set_values':
+            const globalSetResult = await this.metadataTools.getGlobalSetValues(args as { global_set_name: string; include_metadata?: boolean });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(globalSetResult, null, 2)
+                }
+              ]
+            };
+
+          case 'crm_get_complete_disposition_data':
+            const completeDispositionResult = await this.metadataTools.getCompleteDispositionData(args as { module_name: string; include_dependent_fields?: boolean });
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(completeDispositionResult, null, 2)
+                }
+              ]
+            };
+
           case 'crm_get_field_details':
             const fieldDetailsResult = await this.metadataTools.getFieldDetails(args as { field_id: string; module_name: string });
             return {
@@ -4292,6 +4375,61 @@ export class ZohoMCPServer {
               { name: 'books_get_payments', category: 'Books - Payment Processing', description: 'Get all payments from Books' },
               { name: 'books_create_payment', category: 'Books - Payment Processing', description: 'Create payment in Books' },
               
+              // Books - Invoice Management
+              { name: 'books_get_invoices', category: 'Books - Invoice Management', description: 'Get all invoices from Books' },
+              { name: 'books_get_invoice', category: 'Books - Invoice Management', description: 'Get specific invoice details' },
+              { name: 'books_create_invoice', category: 'Books - Invoice Management', description: 'Create new invoice in Books' },
+              { name: 'books_update_invoice', category: 'Books - Invoice Management', description: 'Update existing invoice' },
+              { name: 'books_delete_invoice', category: 'Books - Invoice Management', description: 'Delete invoice from Books' },
+              { name: 'books_send_invoice_email', category: 'Books - Invoice Management', description: 'Send invoice via email' },
+              { name: 'books_get_invoice_pdf', category: 'Books - Invoice Management', description: 'Get invoice as PDF' },
+              
+              // Books - Credit Note Management
+              { name: 'books_get_credit_notes', category: 'Books - Credit Note Management', description: 'Get all credit notes from Books' },
+              { name: 'books_get_credit_note', category: 'Books - Credit Note Management', description: 'Get specific credit note details' },
+              { name: 'books_create_credit_note', category: 'Books - Credit Note Management', description: 'Create new credit note in Books' },
+              { name: 'books_update_credit_note', category: 'Books - Credit Note Management', description: 'Update existing credit note' },
+              { name: 'books_delete_credit_note', category: 'Books - Credit Note Management', description: 'Delete credit note from Books' },
+              { name: 'books_convert_credit_note_to_open', category: 'Books - Credit Note Management', description: 'Convert credit note to open status' },
+              { name: 'books_void_credit_note', category: 'Books - Credit Note Management', description: 'Void credit note' },
+              { name: 'books_email_credit_note', category: 'Books - Credit Note Management', description: 'Email credit note' },
+              { name: 'books_get_credit_note_refunds', category: 'Books - Credit Note Management', description: 'Get refunds for credit note' },
+              { name: 'books_refund_credit_note', category: 'Books - Credit Note Management', description: 'Create refund for credit note' },
+              { name: 'books_apply_credit_note_to_invoice', category: 'Books - Credit Note Management', description: 'Apply credit note to invoice' },
+              { name: 'books_bulk_export_credit_notes', category: 'Books - Credit Note Management', description: 'Export credit notes in bulk' },
+              { name: 'books_bulk_print_credit_notes', category: 'Books - Credit Note Management', description: 'Print credit notes in bulk' },
+              { name: 'books_get_credit_note_comments', category: 'Books - Credit Note Management', description: 'Get comments for credit note' },
+              { name: 'books_add_credit_note_comment', category: 'Books - Credit Note Management', description: 'Add comment to credit note' },
+              
+              // Books - Purchase Order Management
+              { name: 'books_get_purchase_orders', category: 'Books - Purchase Order Management', description: 'Get all purchase orders from Books' },
+              { name: 'books_get_purchase_order', category: 'Books - Purchase Order Management', description: 'Get specific purchase order details' },
+              { name: 'books_create_purchase_order', category: 'Books - Purchase Order Management', description: 'Create new purchase order in Books' },
+              { name: 'books_update_purchase_order', category: 'Books - Purchase Order Management', description: 'Update existing purchase order' },
+              { name: 'books_delete_purchase_order', category: 'Books - Purchase Order Management', description: 'Delete purchase order from Books' },
+              { name: 'books_mark_purchase_order_as_open', category: 'Books - Purchase Order Management', description: 'Mark purchase order as open' },
+              { name: 'books_mark_purchase_order_as_billed', category: 'Books - Purchase Order Management', description: 'Mark purchase order as billed' },
+              { name: 'books_cancel_purchase_order', category: 'Books - Purchase Order Management', description: 'Cancel purchase order' },
+              { name: 'books_email_purchase_order', category: 'Books - Purchase Order Management', description: 'Email purchase order' },
+              { name: 'books_submit_purchase_order_for_approval', category: 'Books - Purchase Order Management', description: 'Submit purchase order for approval' },
+              { name: 'books_approve_purchase_order', category: 'Books - Purchase Order Management', description: 'Approve purchase order' },
+              { name: 'books_bulk_export_purchase_orders', category: 'Books - Purchase Order Management', description: 'Export purchase orders in bulk' },
+              { name: 'books_bulk_print_purchase_orders', category: 'Books - Purchase Order Management', description: 'Print purchase orders in bulk' },
+              
+              // Books - Bill Management
+              { name: 'books_get_bills', category: 'Books - Bill Management', description: 'Get all bills from Books' },
+              { name: 'books_get_bill', category: 'Books - Bill Management', description: 'Get specific bill details' },
+              { name: 'books_create_bill', category: 'Books - Bill Management', description: 'Create new bill in Books' },
+              { name: 'books_update_bill', category: 'Books - Bill Management', description: 'Update existing bill' },
+              { name: 'books_delete_bill', category: 'Books - Bill Management', description: 'Delete bill from Books' },
+              { name: 'books_mark_bill_as_open', category: 'Books - Bill Management', description: 'Mark bill as open' },
+              { name: 'books_void_bill', category: 'Books - Bill Management', description: 'Void bill' },
+              { name: 'books_mark_bill_as_paid', category: 'Books - Bill Management', description: 'Mark bill as paid' },
+              { name: 'books_record_bill_payment', category: 'Books - Bill Management', description: 'Record bill payment' },
+              { name: 'books_get_bill_payments', category: 'Books - Bill Management', description: 'Get bill payments' },
+              { name: 'books_bulk_export_bills', category: 'Books - Bill Management', description: 'Export bills in bulk' },
+              { name: 'books_bulk_print_bills', category: 'Books - Bill Management', description: 'Print bills in bulk' },
+              
               // CRM - Activity Management
               { name: 'crm_get_tasks', category: 'CRM - Activity Management', description: 'Get all tasks from CRM' },
               { name: 'crm_create_task', category: 'CRM - Activity Management', description: 'Create new task in CRM' },
@@ -4330,6 +4468,18 @@ export class ZohoMCPServer {
               { name: 'crm_get_organization_features', category: 'CRM - Metadata & Analysis', description: 'Get organization features' },
               { name: 'crm_get_custom_views', category: 'CRM - Metadata & Analysis', description: 'Get custom views' },
               { name: 'crm_get_custom_view_details', category: 'CRM - Metadata & Analysis', description: 'Get custom view details' },
+              { name: 'crm_get_picklist_fields', category: 'CRM - Metadata & Analysis', description: 'Get only picklist fields for a specific module' },
+              { name: 'crm_search_fields', category: 'CRM - Metadata & Analysis', description: 'Search fields by name pattern' },
+              { name: 'crm_semantic_field_search', category: 'CRM - Metadata & Analysis', description: 'Semantic field search - find fields related to a concept' },
+              { name: 'crm_get_related_lists', category: 'CRM - Metadata & Analysis', description: 'Get all related lists for a module' },
+              { name: 'crm_get_all_territories', category: 'CRM - Metadata & Analysis', description: 'Get all territories' },
+              { name: 'crm_get_all_currencies', category: 'CRM - Metadata & Analysis', description: 'Get all currencies' },
+              { name: 'crm_get_pipeline_metadata', category: 'CRM - Metadata & Analysis', description: 'Get pipeline metadata' },
+              { name: 'crm_get_assignment_rules', category: 'CRM - Metadata & Analysis', description: 'Get assignment rules' },
+              { name: 'crm_get_blueprint_metadata', category: 'CRM - Metadata & Analysis', description: 'Get blueprint metadata' },
+              { name: 'crm_get_metadata_summary', category: 'CRM - Metadata & Analysis', description: 'Get comprehensive metadata summary for the entire CRM' },
+              { name: 'crm_get_complete_module_configuration', category: 'CRM - Metadata & Analysis', description: 'Get complete module configuration including fields, layouts, custom views, and related lists' },
+              { name: 'crm_analyze_module_permissions', category: 'CRM - Metadata & Analysis', description: 'Analyze module permissions and accessibility' },
               { name: 'crm_get_picklist_values', category: 'CRM - Metadata & Analysis', description: 'Get picklist values for a field' },
               { name: 'crm_analyze_picklist_dependencies', category: 'CRM - Metadata & Analysis', description: 'Analyze picklist dependencies in a module' },
               { name: 'crm_get_dependent_fields', category: 'CRM - Metadata & Analysis', description: 'Get fields that depend on a specific field' },
@@ -4337,14 +4487,17 @@ export class ZohoMCPServer {
               { name: 'crm_get_global_fields', category: 'CRM - Metadata & Analysis', description: 'Get global fields across all modules' },
               
               // Configuration Management
-              { name: 'config_get_profiles', category: 'Configuration Management', description: 'Get configuration profiles' },
-              { name: 'config_get_profile', category: 'Configuration Management', description: 'Get specific profile' },
-              { name: 'config_create_profile', category: 'Configuration Management', description: 'Create new profile' },
-              { name: 'config_update_profile', category: 'Configuration Management', description: 'Update profile' },
-              { name: 'config_get_status', category: 'Configuration Management', description: 'Get configuration status' },
-              { name: 'config_export_to_env', category: 'Configuration Management', description: 'Export to environment' },
-              { name: 'config_add_environment', category: 'Configuration Management', description: 'Add environment' },
-              { name: 'config_remove_environment', category: 'Configuration Management', description: 'Remove environment' },
+              { name: 'config_list_environments', category: 'Configuration Management', description: 'List all available environments' },
+              { name: 'config_switch_environment', category: 'Configuration Management', description: 'Switch to a different environment' },
+              { name: 'config_list_profiles', category: 'Configuration Management', description: 'List all profiles in the current environment' },
+              { name: 'config_switch_profile', category: 'Configuration Management', description: 'Switch to a different profile within the current environment' },
+              { name: 'config_add_profile', category: 'Configuration Management', description: 'Add a new profile to the current environment' },
+              { name: 'config_remove_profile', category: 'Configuration Management', description: 'Remove a profile from the current environment' },
+              { name: 'config_update_profile', category: 'Configuration Management', description: 'Update an existing profile' },
+              { name: 'config_get_status', category: 'Configuration Management', description: 'Get current configuration status' },
+              { name: 'config_export_to_env', category: 'Configuration Management', description: 'Export current configuration to .env format' },
+              { name: 'config_add_environment', category: 'Configuration Management', description: 'Add a new environment' },
+              { name: 'config_remove_environment', category: 'Configuration Management', description: 'Remove an environment' },
               
               // Tool Discovery
               { name: 'list_tools_by_category', category: 'Tool Discovery', description: 'List tools by category' },
@@ -4504,7 +4657,7 @@ export class ZohoMCPServer {
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
       
-      console.log('🚀 Zoho MCP Server is running and ready for requests');
+      console.error('🚀 Zoho MCP Server is running and ready for requests');
       
       // Test connections in background (non-blocking)
       this.testConnections();
@@ -4518,16 +4671,16 @@ export class ZohoMCPServer {
     try {
       // Test authentication
       await this.authManager.getValidAccessToken();
-      console.log('✅ Zoho authentication successful');
+      console.error('✅ Zoho authentication successful');
       
       // Test CRM connection
       await this.crmClient.getModules();
-      console.log('✅ CRM connection successful');
+      console.error('✅ CRM connection successful');
       
       // Test Books connection (if organization ID is provided)
       if (process.env.ZOHO_BOOKS_ORGANIZATION_ID) {
         await this.booksClient.getCustomers({ per_page: 1 });
-        console.log('✅ Books connection successful');
+        console.error('✅ Books connection successful');
       }
     } catch (error: any) {
       console.error('⚠️  Connection test failed:', error.message);
@@ -4538,7 +4691,7 @@ export class ZohoMCPServer {
   async stop(): Promise<void> {
     try {
       await this.server.close();
-      console.log('✅ Server stopped gracefully');
+      console.error('✅ Server stopped gracefully');
     } catch (error: any) {
       console.error('❌ Error stopping server:', error.message);
     }
