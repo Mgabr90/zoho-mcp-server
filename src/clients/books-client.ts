@@ -77,6 +77,15 @@ export class ZohoBooksClient {
           throw new RateLimitError('Rate limit exceeded', retryAfter);
         }
         
+        // Enhance error message for organization ID issues
+        if (error.response?.data?.message?.includes('CompanyID/CompanyName')) {
+          throw new ZohoAPIError(
+            `Organization ID validation failed: ${error.response.data.message}. Please verify your organization ID in the profile configuration.`,
+            error.response.status || 400,
+            error.response.data
+          );
+        }
+        
         throw new ZohoAPIError(
           error.response?.data?.message || error.message,
           error.response?.status || 500,

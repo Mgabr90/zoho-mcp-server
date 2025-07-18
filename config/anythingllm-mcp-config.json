@@ -2,10 +2,10 @@
   "mcpServers": {
     "zoho-crm-books": {
       "command": "node",
-      "args": ["https://your-zoho-mcp-app.railway.app"],
+      "args": ["dist/server.js"],
+      "cwd": "/mnt/c/Users/Mahmo/Downloads/zoho-mcp-server",
       "env": {
-        "MCP_SERVER_URL": "https://your-zoho-mcp-app.railway.app",
-        "MCP_SERVER_NAME": "zoho-crm-books"
+        "NODE_ENV": "development"
       }
     }
   },

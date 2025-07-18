@@ -1,0 +1,32 @@
+{
+  "currentEnvironment": "default",
+  "environments": {
+    "default": {
+      "name": "default",
+      "description": "Default environment from .env file",
+      "activeProfile": "main",
+      "profiles": {
+        "main": {
+          "name": "main",
+          "description": "Main configuration from environment variables (EdgeStone preferred, Mag fallback)",
+          "clientId": "1000.PHKHYTP4JVVH52UFD0QW3C3VU98STC",
+          "clientSecret": "8fb760b87d72ea88c354a340ffbbce823907df27ae",
+          "redirectUri": "http://localhost:3000/callback",
+          "refreshToken": "1000.f1a1cd2a7887519d5b002c8c577d4ac0.3b65cbacf7f70be06b996b0969a4bb20",
+          "dataCenter": "com",
+          "scopes": [
+            "ZohoCRM.modules.ALL",
+            "ZohoCRM.settings.ALL",
+            "ZohoCRM.settings.global_picklist.READ",
+            "ZohoBooks.fullaccess.all"
+          ],
+          "organizationId": "869860407",
+          "isActive": true,
+          "createdAt": "2025-07-18T15:08:13.419Z",
+          "updatedAt": "2025-07-18T16:08:59.938Z"
+        }
+      }
+    }
+  },
+  "lastUpdated": "2025-07-18T17:57:00.259Z"
+}

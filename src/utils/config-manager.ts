@@ -327,6 +327,17 @@ ${config.organizationId ? `${prefix}ZOHO_BOOKS_ORGANIZATION_ID=${config.organiza
   }
 
   /**
+   * Get a specific profile by name
+   */
+  getProfile(profileName: string): ZohoConfigProfile | null {
+    const environment = this._environments[this._currentEnvironment];
+    if (!environment || !environment.profiles[profileName]) {
+      return null;
+    }
+    return environment.profiles[profileName];
+  }
+
+  /**
    * Get current configuration status
    */
   getStatus(): {

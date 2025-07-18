@@ -1,12 +1,67 @@
 import { z } from 'zod';
 import { ZohoConfigManager } from '../utils/config-manager.js';
 import { ZohoConfigProfile } from '../types/index.js';
+import { ZohoBooksClient } from '../clients/books-client.js';
+import { ZohoAuthManager } from '../auth/oauth-manager.js';
 
 export class ConfigManagementTools {
   private configManager: ZohoConfigManager;
 
   constructor(configManager: ZohoConfigManager) {
     this.configManager = configManager;
+  }
+
+  /**
+   * Validate organization ID by testing Books API access
+   */
+  private async validateOrganizationId(organizationId: string, profile: ZohoConfigProfile): Promise<{ valid: boolean; error?: string; warning?: string }> {
+    try {
+      // Create a temporary config for testing
+      const testConfig = {
+        clientId: profile.clientId,
+        clientSecret: profile.clientSecret,
+        redirectUri: profile.redirectUri,
+        refreshToken: profile.refreshToken,
+        dataCenter: profile.dataCenter,
+        scopes: profile.scopes,
+        organizationId
+      };
+
+      // Test Books API access with a lightweight operation
+      const authManager = new ZohoAuthManager(testConfig);
+      const booksClient = new ZohoBooksClient(authManager, testConfig.dataCenter, testConfig.organizationId!);
+      await booksClient.getCustomers({ per_page: 1 });
+      
+      return { valid: true };
+    } catch (error: any) {
+      const errorMessage = error.message || 'Unknown error';
+      
+      if (errorMessage.includes('CompanyID/CompanyName')) {
+        return { 
+          valid: false, 
+          error: `Organization ID '${organizationId}' is not associated with your Zoho Books account. Please verify the organization ID is correct.` 
+        };
+      }
+      
+      if (errorMessage.includes('INVALID_TOKEN') || errorMessage.includes('Authentication')) {
+        return { 
+          valid: false, 
+          warning: `Cannot validate organization ID due to authentication issues. The profile was created but Books functionality may not work until tokens are refreshed.` 
+        };
+      }
+      
+      return { 
+        valid: false, 
+        warning: `Cannot validate organization ID due to API error: ${errorMessage}. The profile was created but Books functionality should be tested.` 
+      };
+    }
+  }
+
+  /**
+   * Check if profile has Books scopes
+   */
+  private hasBookScopes(scopes: string[]): boolean {
+    return scopes.some(scope => scope.toLowerCase().includes('books'));
   }
 
   /**
@@ -100,13 +155,68 @@ export class ConfigManagementTools {
    */
   async addProfile(profile: ZohoConfigProfile) {
     try {
+      const hasBooks = this.hasBookScopes(profile.scopes);
+      let validationResult: { valid: boolean; error?: string; warning?: string } | null = null;
+      
+      // Always add the profile first
       this.configManager.addProfile(profile);
+      
+      // If profile has Books scopes, check organization ID
+      if (hasBooks) {
+        if (!profile.organizationId) {
+          return {
+            success: true,
+            message: `Added profile '${profile.name}' to environment '${this.configManager.currentEnvironment}'`,
+            profileName: profile.name,
+            environment: this.configManager.currentEnvironment,
+            warning: 'Profile includes Books scopes but no organization ID was provided. Books functionality will be unavailable until you add a valid organization ID using config_update_profile.',
+            suggestions: [
+              'Find your organization ID in Zoho Books Settings > Organization Profile',
+              'Update this profile with: config_update_profile',
+              'Test Books functionality after adding organization ID'
+            ]
+          };
+        }
+        
+        // Validate organization ID if provided
+        validationResult = await this.validateOrganizationId(profile.organizationId, profile);
+        
+        if (!validationResult.valid && validationResult.error) {
+          return {
+            success: true,
+            message: `Added profile '${profile.name}' to environment '${this.configManager.currentEnvironment}'`,
+            profileName: profile.name,
+            environment: this.configManager.currentEnvironment,
+            warning: validationResult.error,
+            suggestions: [
+              'Verify organization ID in Zoho Books Settings > Organization Profile',
+              'Update organization ID using: config_update_profile',
+              'Ensure your Zoho account has access to this organization'
+            ]
+          };
+        }
+        
+        if (validationResult.warning) {
+          return {
+            success: true,
+            message: `Added profile '${profile.name}' to environment '${this.configManager.currentEnvironment}'`,
+            profileName: profile.name,
+            environment: this.configManager.currentEnvironment,
+            warning: validationResult.warning,
+            suggestions: [
+              'Test Books functionality after profile creation',
+              'Refresh tokens if authentication issues persist'
+            ]
+          };
+        }
+      }
       
       return {
         success: true,
         message: `Added profile '${profile.name}' to environment '${this.configManager.currentEnvironment}'`,
         profileName: profile.name,
-        environment: this.configManager.currentEnvironment
+        environment: this.configManager.currentEnvironment,
+        ...(hasBooks && validationResult?.valid ? { info: 'Organization ID validated successfully' } : {})
       };
     } catch (error) {
       return {
@@ -142,7 +252,61 @@ export class ConfigManagementTools {
    */
   async updateProfile(profileName: string, updates: Partial<ZohoConfigProfile>) {
     try {
+      // Get current profile to check scopes
+      const currentProfile = this.configManager.getProfile(profileName);
+      if (!currentProfile) {
+        return {
+          success: false,
+          error: `Profile '${profileName}' not found`
+        };
+      }
+      
+      // Apply updates
       this.configManager.updateProfile(profileName, updates);
+      
+      // Get updated profile
+      const updatedProfile = this.configManager.getProfile(profileName);
+      const hasBooks = this.hasBookScopes(updatedProfile!.scopes);
+      
+      // If organization ID was updated and profile has Books scopes, validate it
+      if (hasBooks && updates.organizationId) {
+        const validationResult = await this.validateOrganizationId(updates.organizationId, updatedProfile!);
+        
+        if (!validationResult.valid && validationResult.error) {
+          return {
+            success: true,
+            message: `Updated profile '${profileName}' in environment '${this.configManager.currentEnvironment}'`,
+            profileName,
+            environment: this.configManager.currentEnvironment,
+            updatedFields: Object.keys(updates),
+            warning: validationResult.error,
+            suggestions: [
+              'Verify organization ID in Zoho Books Settings > Organization Profile',
+              'Test Books functionality to confirm the organization ID works'
+            ]
+          };
+        }
+        
+        if (validationResult.warning) {
+          return {
+            success: true,
+            message: `Updated profile '${profileName}' in environment '${this.configManager.currentEnvironment}'`,
+            profileName,
+            environment: this.configManager.currentEnvironment,
+            updatedFields: Object.keys(updates),
+            warning: validationResult.warning
+          };
+        }
+        
+        return {
+          success: true,
+          message: `Updated profile '${profileName}' in environment '${this.configManager.currentEnvironment}'`,
+          profileName,
+          environment: this.configManager.currentEnvironment,
+          updatedFields: Object.keys(updates),
+          info: 'Organization ID validated successfully'
+        };
+      }
       
       return {
         success: true,
