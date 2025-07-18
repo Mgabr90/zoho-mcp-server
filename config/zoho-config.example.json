@@ -1,0 +1,165 @@
+{
+  "currentEnvironment": "default",
+  "environments": {
+    "default": {
+      "name": "default",
+      "description": "Default environment from .env file",
+      "activeProfile": "main",
+      "profiles": {
+        "main": {
+          "name": "main",
+          "description": "Main configuration from environment variables",
+          "clientId": "1000.XXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "clientSecret": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "redirectUri": "http://localhost:3000/callback",
+          "refreshToken": "1000.XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+          "dataCenter": "com",
+          "scopes": [
+            "ZohoCRM.modules.ALL",
+            "ZohoCRM.settings.ALL",
+            "ZohoBooks.fullaccess.all"
+          ],
+          "organizationId": "123456789",
+          "isActive": true,
+          "createdAt": "2024-01-01T00:00:00.000Z",
+          "updatedAt": "2024-01-01T00:00:00.000Z"
+        }
+      }
+    },
+    "production": {
+      "name": "production",
+      "description": "Production environment for live data",
+      "activeProfile": "primary",
+      "profiles": {
+        "primary": {
+          "name": "primary",
+          "description": "Primary production account",
+          "clientId": "1000.PROD_CLIENT_ID_HERE",
+          "clientSecret": "PROD_CLIENT_SECRET_HERE",
+          "redirectUri": "https://yourdomain.com/callback",
+          "refreshToken": "1000.PROD_REFRESH_TOKEN_HERE",
+          "dataCenter": "com",
+          "scopes": [
+            "ZohoCRM.modules.ALL",
+            "ZohoCRM.settings.ALL",
+            "ZohoBooks.fullaccess.all"
+          ],
+          "organizationId": "PROD_ORG_ID",
+          "isActive": true,
+          "createdAt": "2024-01-01T00:00:00.000Z",
+          "updatedAt": "2024-01-01T00:00:00.000Z"
+        },
+        "backup": {
+          "name": "backup",
+          "description": "Backup production account",
+          "clientId": "1000.BACKUP_CLIENT_ID_HERE",
+          "clientSecret": "BACKUP_CLIENT_SECRET_HERE",
+          "redirectUri": "https://yourdomain.com/callback",
+          "refreshToken": "1000.BACKUP_REFRESH_TOKEN_HERE",
+          "dataCenter": "com",
+          "scopes": [
+            "ZohoCRM.modules.ALL",
+            "ZohoCRM.settings.ALL",
+            "ZohoBooks.fullaccess.all"
+          ],
+          "organizationId": "BACKUP_ORG_ID",
+          "isActive": false,
+          "createdAt": "2024-01-01T00:00:00.000Z",
+          "updatedAt": "2024-01-01T00:00:00.000Z"
+        }
+      }
+    },
+    "staging": {
+      "name": "staging",
+      "description": "Staging environment for testing",
+      "activeProfile": "test",
+      "profiles": {
+        "test": {
+          "name": "test",
+          "description": "Test account for staging",
+          "clientId": "1000.STAGING_CLIENT_ID_HERE",
+          "clientSecret": "STAGING_CLIENT_SECRET_HERE",
+          "redirectUri": "https://staging.yourdomain.com/callback",
+          "refreshToken": "1000.STAGING_REFRESH_TOKEN_HERE",
+          "dataCenter": "com",
+          "scopes": [
+            "ZohoCRM.modules.ALL",
+            "ZohoCRM.settings.ALL",
+            "ZohoBooks.fullaccess.all"
+          ],
+          "organizationId": "STAGING_ORG_ID",
+          "isActive": true,
+          "createdAt": "2024-01-01T00:00:00.000Z",
+          "updatedAt": "2024-01-01T00:00:00.000Z"
+        }
+      }
+    },
+    "development": {
+      "name": "development",
+      "description": "Development environment for local testing",
+      "activeProfile": "dev",
+      "profiles": {
+        "dev": {
+          "name": "dev",
+          "description": "Development account",
+          "clientId": "1000.DEV_CLIENT_ID_HERE",
+          "clientSecret": "DEV_CLIENT_SECRET_HERE",
+          "redirectUri": "http://localhost:3000/callback",
+          "refreshToken": "1000.DEV_REFRESH_TOKEN_HERE",
+          "dataCenter": "com",
+          "scopes": [
+            "ZohoCRM.modules.ALL",
+            "ZohoCRM.settings.ALL",
+            "ZohoBooks.fullaccess.all"
+          ],
+          "organizationId": "DEV_ORG_ID",
+          "isActive": true,
+          "createdAt": "2024-01-01T00:00:00.000Z",
+          "updatedAt": "2024-01-01T00:00:00.000Z"
+        },
+        "sandbox": {
+          "name": "sandbox",
+          "description": "Sandbox account for experimentation",
+          "clientId": "1000.SANDBOX_CLIENT_ID_HERE",
+          "clientSecret": "SANDBOX_CLIENT_SECRET_HERE",
+          "redirectUri": "http://localhost:3000/callback",
+          "refreshToken": "1000.SANDBOX_REFRESH_TOKEN_HERE",
+          "dataCenter": "com",
+          "scopes": [
+            "ZohoCRM.modules.ALL",
+            "ZohoCRM.settings.ALL"
+          ],
+          "isActive": false,
+          "createdAt": "2024-01-01T00:00:00.000Z",
+          "updatedAt": "2024-01-01T00:00:00.000Z"
+        }
+      }
+    },
+    "europe": {
+      "name": "europe",
+      "description": "European data center configuration",
+      "activeProfile": "eu-primary",
+      "profiles": {
+        "eu-primary": {
+          "name": "eu-primary",
+          "description": "Primary European account",
+          "clientId": "1000.EU_CLIENT_ID_HERE",
+          "clientSecret": "EU_CLIENT_SECRET_HERE",
+          "redirectUri": "https://eu.yourdomain.com/callback",
+          "refreshToken": "1000.EU_REFRESH_TOKEN_HERE",
+          "dataCenter": "eu",
+          "scopes": [
+            "ZohoCRM.modules.ALL",
+            "ZohoCRM.settings.ALL",
+            "ZohoBooks.fullaccess.all"
+          ],
+          "organizationId": "EU_ORG_ID",
+          "isActive": true,
+          "createdAt": "2024-01-01T00:00:00.000Z",
+          "updatedAt": "2024-01-01T00:00:00.000Z"
+        }
+      }
+    }
+  },
+  "lastUpdated": "2024-01-01T00:00:00.000Z"
+} 

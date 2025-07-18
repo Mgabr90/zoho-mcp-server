@@ -1,0 +1,77 @@
+{
+  "mcpServers": {
+    "zoho-crm-books": {
+      "command": "node",
+      "args": ["https://your-zoho-mcp-app.railway.app"],
+      "env": {
+        "MCP_SERVER_URL": "https://your-zoho-mcp-app.railway.app",
+        "MCP_SERVER_NAME": "zoho-crm-books"
+      }
+    }
+  },
+  "anythingllm": {
+    "server": {
+      "port": 3001,
+      "host": "0.0.0.0"
+    },
+    "storage": {
+      "path": "/app/server/storage"
+    },
+    "uploads": {
+      "path": "/app/server/uploads"
+    },
+    "mcp": {
+      "enabled": true,
+      "servers": [
+        {
+          "name": "zoho-crm-books",
+          "url": "https://your-zoho-mcp-app.railway.app",
+          "enabled": true,
+          "description": "Zoho CRM and Books integration for customer management, invoicing, and data synchronization"
+        }
+      ]
+    }
+  },
+  "zoho": {
+    "crm": {
+      "modules": [
+        "accounts",
+        "contacts", 
+        "deals",
+        "leads",
+        "tasks",
+        "events",
+        "notes",
+        "attachments"
+      ]
+    },
+    "books": {
+      "modules": [
+        "customers",
+        "invoices",
+        "payments",
+        "estimates",
+        "items",
+        "credit_notes",
+        "purchase_orders",
+        "bills"
+      ]
+    },
+    "sync": {
+      "enabled": true,
+      "direction": "bidirectional",
+      "modules": [
+        {
+          "source": "accounts",
+          "target": "customers",
+          "direction": "crm_to_books"
+        },
+        {
+          "source": "contacts", 
+          "target": "customers",
+          "direction": "bidirectional"
+        }
+      ]
+    }
+  }
+} 

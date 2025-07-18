@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zoho MCP Server - Authentication Configuration Helper</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+            line-height: 1.6;
+            color: #2c3e50;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px 0;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #1a365d;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            color: #64748b;
+            margin-bottom: 20px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .workflow-container {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .workflow-nav {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            padding: 20px;
+            height: fit-content;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 20px;
+        }
+        
+        .workflow-nav h3 {
+            color: #1a365d;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+        
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            text-decoration: none;
+            color: #64748b;
+        }
+        
+        .nav-item:hover {
+            background: #f1f5f9;
+            transform: translateX(5px);
+        }
+        
+        .nav-item.active {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            border-color: #3b82f6;
+        }
+        
+        .nav-item.completed {
+            background: #d1fae5;
+            color: #059669;
+            border-color: #059669;
+        }
+        
+        .nav-item .icon {
+            margin-right: 10px;
+            font-size: 1.2rem;
+        }
+        
+        .nav-item .step-number {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        
+        .nav-item.completed .step-number {
+            background: #059669;
+        }
+        
+        .nav-item:not(.active):not(.completed) .step-number {
+            background: #94a3b8;
+            color: white;
+        }
+        
+        .workflow-content {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+            min-height: 600px;
+        }
+        
+        .step-section {
+            display: none;
+        }
+        
+        .step-section.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .step-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .step-icon {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 1.5rem;
+        }
+        
+        .step-title {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #1a365d;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .input-group input {
+            flex: 1;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #f1f5f9;
+            color: #64748b;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .btn-secondary:hover {
+            background: #e2e8f0;
+            color: #475569;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .card-icon {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+        }
+        
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1a365d;
+        }
+        
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid;
+        }
+        
+        .alert-info {
+            background: #e0f2fe;
+            border-left-color: #0284c7;
+            color: #0c4a6e;
+        }
+        
+        .alert-success {
+            background: #dcfce7;
+            border-left-color: #16a34a;
+            color: #14532d;
+        }
+        
+        .alert-warning {
+            background: #fef3c7;
+            border-left-color: #d97706;
+            color: #92400e;
+        }
+        
+        .alert-error {
+            background: #fecaca;
+            border-left-color: #dc2626;
+            color: #991b1b;
+        }
+        
+        .code-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin: 15px 0;
+            position: relative;
+        }
+        
+        .code-block::before {
+            content: attr(data-language);
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            font-size: 11px;
+            color: #64748b;
+            text-transform: uppercase;
+        }
+        
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #374151;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .code-block:hover .copy-btn {
+            opacity: 1;
+        }
+        
+        .copy-btn:hover {
+            background: #4b5563;
+        }
+        
+        .scope-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .scope-item {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 15px;
+            transition: all 0.3s ease;
+        }
+        
+        .scope-item:hover {
+            border-color: #3b82f6;
+            transform: translateY(-2px);
+        }
+        
+        .scope-item.selected {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+        
+        .scope-name {
+            font-weight: 600;
+            color: #1a365d;
+            margin-bottom: 8px;
+        }
+        
+        .scope-description {
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+        
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            background: white;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .checkbox-item:hover {
+            background: #f8fafc;
+            border-color: #3b82f6;
+        }
+        
+        .checkbox-item input[type="checkbox"] {
+            width: auto;
+            margin-right: 10px;
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .status-pending {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        
+        .status-active {
+            background: #dbeafe;
+            color: #1d4ed8;
+        }
+        
+        .status-complete {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+        
+        .status-error {
+            background: #fecaca;
+            color: #dc2626;
+        }
+        
+        .step-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .config-preview {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .config-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .config-item:last-child {
+            border-bottom: none;
+        }
+        
+        .config-label {
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .config-value {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
+        
+        .help-text {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+        
+        .url-display {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9rem;
+            word-break: break-all;
+            margin: 15px 0;
+            position: relative;
+        }
+        
+        .url-display a {
+            color: #60a5fa;
+            text-decoration: none;
+        }
+        
+        .url-display a:hover {
+            text-decoration: underline;
+        }
+        
+        .extracted-values {
+            background: #f0f9ff;
+            border: 1px solid #0284c7;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+        
+        .extracted-value {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #bae6fd;
+        }
+        
+        .extracted-value:last-child {
+            border-bottom: none;
+        }
+        
+        .extracted-label {
+            font-weight: 600;
+            color: #0c4a6e;
+        }
+        
+        .extracted-data {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9rem;
+            color: #0369a1;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+        
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1a365d;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280;
+        }
+        
+        .close-btn:hover {
+            color: #374151;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .loading {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .loading::after {
+            content: '';
+            width: 16px;
+            height: 16px;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 768px) {
+            .workflow-container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .workflow-nav {
+                order: 2;
+                position: static;
+            }
+            
+            .workflow-content {
+                order: 1;
+            }
+            
+            .input-group {
+                flex-direction: column;
+            }
+            
+            .step-actions {
+                flex-direction: column;
+            }
+            
+            .scope-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .checkbox-group {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔐 Zoho MCP Server</h1>
+            <p class="subtitle">Authentication Configuration Helper</p>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </header>
+
+        <div class="workflow-container">
+            <nav class="workflow-nav">
+                <h3>🗺️ Configuration Steps</h3>
+                <div class="nav-item active" data-step="credentials">
+                    <div class="step-number">1</div>
+                    <span>Credentials</span>
+                </div>
+                <div class="nav-item" data-step="oauth">
+                    <div class="step-number">2</div>
+                    <span>OAuth Flow</span>
+                </div>
+                <div class="nav-item" data-step="organization">
+                    <div class="step-number">3</div>
+                    <span>Organization</span>
+                </div>
+                <div class="nav-item" data-step="scopes">
+                    <div class="step-number">4</div>
+                    <span>API Scopes</span>
+                </div>
+                <div class="nav-item" data-step="configuration">
+                    <div class="step-number">5</div>
+                    <span>Configuration</span>
+                </div>
+            </nav>
+
+            <main class="workflow-content">
+                <!-- Step 1: Credentials -->
+                <section id="credentials" class="step-section active">
+                    <div class="step-header">
+                        <div class="step-icon">🔑</div>
+                        <h2 class="step-title">Application Credentials</h2>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <strong>ℹ️ Important:</strong> Enter your Zoho application credentials. These will be used throughout the configuration process.
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="globalClientId">Client ID</label>
+                        <input type="text" id="globalClientId" placeholder="1000.XXXXXXXXXXXXXXXXXXXXXXXXXXXXX" autocomplete="off">
+                        <div class="help-text">Your Zoho application's Client ID from the Developer Console</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="globalClientSecret">Client Secret</label>
+                        <input type="password" id="globalClientSecret" placeholder="Enter your client secret" autocomplete="off">
+                        <div class="help-text">Your Zoho application's Client Secret (kept secure)</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="globalRedirectUri">Redirect URI</label>
+                        <input type="url" id="globalRedirectUri" value="http://localhost:3000/callback" autocomplete="off">
+                        <div class="help-text">Must match the redirect URI configured in your Zoho application</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="globalDataCenter">Data Center</label>
+                        <select id="globalDataCenter">
+                            <option value="com">com (United States)</option>
+                            <option value="eu">eu (Europe)</option>
+                            <option value="in">in (India)</option>
+                            <option value="com.au">com.au (Australia)</option>
+                            <option value="jp">jp (Japan)</option>
+                        </select>
+                        <div class="help-text">Select your Zoho data center location</div>
+                    </div>
+                    
+                    <div id="credentialsStatus" class="alert alert-warning">
+                        <span id="credentialsStatusText">⚠️ Please fill in all credentials to continue</span>
+                    </div>
+                    
+                    <div class="step-actions">
+                        <button class="btn btn-primary" id="continueToOAuth" disabled>
+                            Continue to OAuth Flow →
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Step 2: OAuth Flow -->
+                <section id="oauth" class="step-section">
+                    <div class="step-header">
+                        <div class="step-icon">🔄</div>
+                        <h2 class="step-title">OAuth Authorization</h2>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">🔗</div>
+                            <h3 class="card-title">Step 1: Generate Authorization URL</h3>
+                        </div>
+                        <p>Click the button below to generate the authorization URL:</p>
+                        <button class="btn btn-primary" id="generateAuthBtn" disabled>
+                            🔗 Generate Authorization URL
+                        </button>
+                        <div id="authUrlOutput" class="url-display hidden"></div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">🌐</div>
+                            <h3 class="card-title">Step 2: Authorize Application</h3>
+                        </div>
+                        <p>Click the generated URL, complete the authorization, and return with the callback URL.</p>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">📋</div>
+                            <h3 class="card-title">Step 3: Parse Callback URL</h3>
+                        </div>
+                        <div class="form-group">
+                            <label for="callbackUrl">Callback URL</label>
+                            <div class="input-group">
+                                <input type="url" id="callbackUrl" placeholder="http://localhost:3000/callback?code=...">
+                                <button class="btn btn-primary" id="parseUrlBtn">
+                                    🔍 Parse URL
+                                </button>
+                            </div>
+                            <div class="help-text">Paste the complete callback URL from your browser</div>
+                        </div>
+                        
+                        <div id="extractedValues" class="extracted-values hidden">
+                            <h4>📋 Extracted Values:</h4>
+                            <div id="extractedValuesContent"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">🔄</div>
+                            <h3 class="card-title">Step 4: Get Refresh Token</h3>
+                        </div>
+                        <div class="form-group">
+                            <label for="authCode">Authorization Code</label>
+                            <input type="text" id="authCode" placeholder="Will be auto-filled from callback URL" readonly>
+                            <div class="help-text">Automatically extracted from the callback URL</div>
+                        </div>
+                        
+                        <button class="btn btn-primary" id="getTokenBtn" disabled>
+                            🔄 Get Refresh Token
+                        </button>
+                        
+                        <div id="refreshTokenOutput" class="code-block hidden" data-language="curl">
+                            <button class="copy-btn" onclick="copyToClipboard('refreshTokenOutput')">📋 Copy</button>
+                        </div>
+                        
+                        <div id="manualTokenSection" class="card hidden">
+                            <div class="card-header">
+                                <div class="card-icon">✋</div>
+                                <h4 class="card-title">Manual Token Entry</h4>
+                            </div>
+                            <div class="form-group">
+                                <label for="manualRefreshToken">Refresh Token</label>
+                                <input type="text" id="manualRefreshToken" placeholder="Paste your refresh token here">
+                                <div class="help-text">If you ran the curl command manually, paste the refresh token here</div>
+                            </div>
+                            <button class="btn btn-success" id="setTokenBtn">
+                                ✅ Set Refresh Token
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="step-actions">
+                        <button class="btn btn-secondary" id="backToCredentials">
+                            ← Back to Credentials
+                        </button>
+                        <button class="btn btn-primary" id="continueToOrg" disabled>
+                            Continue to Organization →
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Step 3: Organization -->
+                <section id="organization" class="step-section">
+                    <div class="step-header">
+                        <div class="step-icon">🏢</div>
+                        <h2 class="step-title">Organization Configuration</h2>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <strong>ℹ️ Note:</strong> Organization ID is required for Zoho Books functionality. Skip this step if you only need CRM access.
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">🔍</div>
+                            <h3 class="card-title">Automatic Detection</h3>
+                        </div>
+                        <p>Automatically fetch your organization ID from Zoho Books:</p>
+                        <button class="btn btn-primary" id="fetchOrgBtn" disabled>
+                            🔍 Fetch Organization ID
+                        </button>
+                        <div id="orgFetchOutput" class="hidden"></div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">✏️</div>
+                            <h3 class="card-title">Manual Entry</h3>
+                        </div>
+                        <div class="form-group">
+                            <label for="organizationId">Organization ID</label>
+                            <input type="text" id="organizationId" placeholder="e.g., 869860407">
+                            <div class="help-text">Enter your Zoho Books organization ID manually</div>
+                        </div>
+                        <button class="btn btn-secondary" id="setOrgBtn">
+                            ✅ Set Organization ID
+                        </button>
+                    </div>
+                    
+                    <div id="orgResult" class="alert alert-success hidden">
+                        <strong>✅ Organization ID Set:</strong> <span id="orgIdResult"></span>
+                    </div>
+                    
+                    <div class="step-actions">
+                        <button class="btn btn-secondary" id="backToOAuth">
+                            ← Back to OAuth
+                        </button>
+                        <button class="btn btn-primary" id="continueToScopes">
+                            Continue to API Scopes →
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Step 4: API Scopes -->
+                <section id="scopes" class="step-section">
+                    <div class="step-header">
+                        <div class="step-icon">🔑</div>
+                        <h2 class="step-title">API Scopes Selection</h2>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">⚡</div>
+                            <h3 class="card-title">Quick Presets</h3>
+                        </div>
+                        <div class="checkbox-group">
+                            <div class="checkbox-item preset-option" data-preset="full">
+                                <input type="radio" name="preset" id="preset-full" value="full" checked>
+                                <label for="preset-full">Full Access (Recommended)</label>
+                            </div>
+                            <div class="checkbox-item preset-option" data-preset="crm">
+                                <input type="radio" name="preset" id="preset-crm" value="crm">
+                                <label for="preset-crm">CRM Only</label>
+                            </div>
+                            <div class="checkbox-item preset-option" data-preset="books">
+                                <input type="radio" name="preset" id="preset-books" value="books">
+                                <label for="preset-books">Books Only</label>
+                            </div>
+                            <div class="checkbox-item preset-option" data-preset="custom">
+                                <input type="radio" name="preset" id="preset-custom" value="custom">
+                                <label for="preset-custom">Custom Selection</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">🛠️</div>
+                            <h3 class="card-title">Required Scopes</h3>
+                        </div>
+                        <div class="scope-grid">
+                            <div class="scope-item" data-scope="ZohoCRM.modules.ALL">
+                                <div class="scope-name">ZohoCRM.modules.ALL</div>
+                                <div class="scope-description">Full access to all CRM modules (Accounts, Contacts, Deals, etc.)</div>
+                            </div>
+                            <div class="scope-item" data-scope="ZohoCRM.settings.ALL">
+                                <div class="scope-name">ZohoCRM.settings.ALL</div>
+                                <div class="scope-description">Access to CRM settings, layouts, and metadata</div>
+                            </div>
+                            <div class="scope-item" data-scope="ZohoBooks.fullaccess.all">
+                                <div class="scope-name">ZohoBooks.fullaccess.all</div>
+                                <div class="scope-description">Full access to Books functionality</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="customScopes">Custom Scopes</label>
+                        <textarea id="customScopes" rows="3" placeholder="Enter custom scopes separated by commas">ZohoCRM.modules.ALL,ZohoCRM.settings.ALL,ZohoBooks.fullaccess.all</textarea>
+                        <div class="help-text">Advanced: Modify scopes as needed</div>
+                    </div>
+                    
+                    <div class="step-actions">
+                        <button class="btn btn-secondary" id="backToOrg">
+                            ← Back to Organization
+                        </button>
+                        <button class="btn btn-primary" id="continueToConfig">
+                            Continue to Configuration →
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Step 5: Configuration -->
+                <section id="configuration" class="step-section">
+                    <div class="step-header">
+                        <div class="step-icon">⚙️</div>
+                        <h2 class="step-title">Final Configuration</h2>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">📋</div>
+                            <h3 class="card-title">Configuration Review</h3>
+                        </div>
+                        <div class="config-preview">
+                            <div class="config-item">
+                                <span class="config-label">Client ID:</span>
+                                <span class="config-value" id="reviewClientId">Not set</span>
+                            </div>
+                            <div class="config-item">
+                                <span class="config-label">Client Secret:</span>
+                                <span class="config-value" id="reviewClientSecret">Not set</span>
+                            </div>
+                            <div class="config-item">
+                                <span class="config-label">Redirect URI:</span>
+                                <span class="config-value" id="reviewRedirectUri">Not set</span>
+                            </div>
+                            <div class="config-item">
+                                <span class="config-label">Refresh Token:</span>
+                                <span class="config-value" id="reviewRefreshToken">Not set</span>
+                            </div>
+                            <div class="config-item">
+                                <span class="config-label">Data Center:</span>
+                                <span class="config-value" id="reviewDataCenter">Not set</span>
+                            </div>
+                            <div class="config-item">
+                                <span class="config-label">Organization ID:</span>
+                                <span class="config-value" id="reviewOrgId">Not set</span>
+                            </div>
+                            <div class="config-item">
+                                <span class="config-label">API Scopes:</span>
+                                <span class="config-value" id="reviewScopes">Not set</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-icon">📄</div>
+                            <h3 class="card-title">Generate Configuration</h3>
+                        </div>
+                        <button class="btn btn-primary" id="generateConfigBtn" disabled>
+                            🔧 Generate .env Configuration
+                        </button>
+                        
+                        <div id="configOutput" class="code-block hidden" data-language="env">
+                            <button class="copy-btn" onclick="copyToClipboard('configOutput')">📋 Copy</button>
+                        </div>
+                        
+                        <div id="configActions" class="step-actions hidden">
+                            <button class="btn btn-success" id="copyConfigBtn">
+                                📋 Copy to Clipboard
+                            </button>
+                            <button class="btn btn-secondary" id="downloadConfigBtn">
+                                💾 Download .env File
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="step-actions">
+                        <button class="btn btn-secondary" id="backToScopes">
+                            ← Back to API Scopes
+                        </button>
+                        <button class="btn btn-success" id="completeSetup" disabled>
+                            ✅ Complete Setup
+                        </button>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        const state = {
+            credentials: {
+                clientId: '',
+                clientSecret: '',
+                redirectUri: 'http://localhost:3000/callback',
+                dataCenter: 'com'
+            },
+            oauth: {
+                authCode: '',
+                refreshToken: ''
+            },
+            organization: {
+                orgId: ''
+            },
+            scopes: {
+                selected: 'ZohoCRM.modules.ALL,ZohoCRM.settings.ALL,ZohoBooks.fullaccess.all'
+            },
+            currentStep: 'credentials',
+            completedSteps: []
+        };
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeEventListeners();
+            updateProgressBar();
+            updateUI();
+        });
+
+        function initializeEventListeners() {
+            // Navigation
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const step = this.dataset.step;
+                    if (canNavigateToStep(step)) {
+                        navigateToStep(step);
+                    }
+                });
+            });
+
+            // Credentials form
+            document.getElementById('globalClientId').addEventListener('input', updateCredentials);
+            document.getElementById('globalClientSecret').addEventListener('input', updateCredentials);
+            document.getElementById('globalRedirectUri').addEventListener('input', updateCredentials);
+            document.getElementById('globalDataCenter').addEventListener('change', updateCredentials);
+
+            // OAuth flow
+            document.getElementById('generateAuthBtn').addEventListener('click', generateAuthUrl);
+            document.getElementById('parseUrlBtn').addEventListener('click', parseCallbackUrl);
+            document.getElementById('getTokenBtn').addEventListener('click', getRefreshToken);
+            document.getElementById('setTokenBtn').addEventListener('click', setRefreshToken);
+
+            // Organization
+            document.getElementById('fetchOrgBtn').addEventListener('click', fetchOrganizationId);
+            document.getElementById('setOrgBtn').addEventListener('click', setOrganizationId);
+
+            // Scopes
+            document.querySelectorAll('input[name="preset"]').forEach(radio => {
+                radio.addEventListener('change', updateScopePreset);
+            });
+            document.getElementById('customScopes').addEventListener('input', updateCustomScopes);
+
+            // Configuration
+            document.getElementById('generateConfigBtn').addEventListener('click', generateConfiguration);
+            document.getElementById('copyConfigBtn').addEventListener('click', copyConfiguration);
+            document.getElementById('downloadConfigBtn').addEventListener('click', downloadConfiguration);
+
+            // Step navigation buttons
+            document.getElementById('continueToOAuth').addEventListener('click', () => navigateToStep('oauth'));
+            document.getElementById('continueToOrg').addEventListener('click', () => navigateToStep('organization'));
+            document.getElementById('continueToScopes').addEventListener('click', () => navigateToStep('scopes'));
+            document.getElementById('continueToConfig').addEventListener('click', () => navigateToStep('configuration'));
+            
+            document.getElementById('backToCredentials').addEventListener('click', () => navigateToStep('credentials'));
+            document.getElementById('backToOAuth').addEventListener('click', () => navigateToStep('oauth'));
+            document.getElementById('backToOrg').addEventListener('click', () => navigateToStep('organization'));
+            document.getElementById('backToScopes').addEventListener('click', () => navigateToStep('scopes'));
+        }
+
+        function updateCredentials() {
+            state.credentials.clientId = document.getElementById('globalClientId').value;
+            state.credentials.clientSecret = document.getElementById('globalClientSecret').value;
+            state.credentials.redirectUri = document.getElementById('globalRedirectUri').value;
+            state.credentials.dataCenter = document.getElementById('globalDataCenter').value;
+            
+            updateCredentialsStatus();
+            updateUI();
+        }
+
+        function updateCredentialsStatus() {
+            const { clientId, clientSecret, redirectUri } = state.credentials;
+            const statusDiv = document.getElementById('credentialsStatus');
+            const statusText = document.getElementById('credentialsStatusText');
+            const continueBtn = document.getElementById('continueToOAuth');
+            const generateBtn = document.getElementById('generateAuthBtn');
+
+            if (clientId && clientSecret && redirectUri) {
+                statusDiv.className = 'alert alert-success';
+                statusText.textContent = '✅ Credentials configured successfully!';
+                continueBtn.disabled = false;
+                generateBtn.disabled = false;
+                markStepComplete('credentials');
+            } else {
+                statusDiv.className = 'alert alert-warning';
+                statusText.textContent = '⚠️ Please fill in all credentials to continue';
+                continueBtn.disabled = true;
+                generateBtn.disabled = true;
+            }
+        }
+
+        function generateAuthUrl() {
+            const { clientId, redirectUri } = state.credentials;
+            const scopes = state.scopes.selected;
+            
+            const authUrl = `https://accounts.zoho.${state.credentials.dataCenter}/oauth/v2/auth?response_type=code&client_id=${clientId}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&access_type=offline`;
+            
+            const output = document.getElementById('authUrlOutput');
+            output.innerHTML = `<a href="${authUrl}" target="_blank" rel="noopener noreferrer">${authUrl}</a>`;
+            output.classList.remove('hidden');
+        }
+
+        function parseCallbackUrl() {
+            const callbackUrl = document.getElementById('callbackUrl').value;
+            
+            if (!callbackUrl) {
+                showAlert('Please enter a callback URL!', 'error');
+                return;
+            }
+            
+            try {
+                const url = new URL(callbackUrl);
+                const params = new URLSearchParams(url.search);
+                
+                const code = params.get('code');
+                if (!code) {
+                    showAlert('No authorization code found in the URL.', 'error');
+                    return;
+                }
+                
+                const extractedData = {
+                    'Authorization Code': code,
+                    'Location': params.get('location') || 'us',
+                    'Accounts Server': params.get('accounts-server') || 'https://accounts.zoho.com',
+                    'Redirect URI': url.origin + url.pathname
+                };
+                
+                displayExtractedValues(extractedData);
+                
+                state.oauth.authCode = code;
+                document.getElementById('authCode').value = code;
+                document.getElementById('getTokenBtn').disabled = false;
+                
+                showAlert('URL parsed successfully!', 'success');
+                
+            } catch (error) {
+                showAlert(`Invalid URL format: ${error.message}`, 'error');
+            }
+        }
+
+        function displayExtractedValues(data) {
+            const container = document.getElementById('extractedValues');
+            const content = document.getElementById('extractedValuesContent');
+            
+            content.innerHTML = '';
+            
+            Object.entries(data).forEach(([key, value]) => {
+                const div = document.createElement('div');
+                div.className = 'extracted-value';
+                div.innerHTML = `
+                    <span class="extracted-label">${key}:</span>
+                    <span class="extracted-data">${value}</span>
+                `;
+                content.appendChild(div);
+            });
+            
+            container.classList.remove('hidden');
+        }
+
+        function getRefreshToken() {
+            const { authCode } = state.oauth;
+            const { clientId, clientSecret, redirectUri, dataCenter } = state.credentials;
+            
+            if (!authCode || !clientId || !clientSecret) {
+                showAlert('Please ensure all required fields are filled!', 'error');
+                return;
+            }
+            
+            const curlCommand = `curl -X POST "https://accounts.zoho.${dataCenter}/oauth/v2/token" \\
+  -H "Content-Type: application/x-www-form-urlencoded" \\
+  -d "code=${authCode}&client_id=${clientId}&client_secret=${clientSecret}&redirect_uri=${encodeURIComponent(redirectUri)}&grant_type=authorization_code"`;
+            
+            const output = document.getElementById('refreshTokenOutput');
+            output.textContent = curlCommand;
+            output.classList.remove('hidden');
+            
+            document.getElementById('manualTokenSection').classList.remove('hidden');
+            
+            showAlert('Due to browser security restrictions, please run the curl command in your terminal and paste the refresh token below.', 'info');
+        }
+
+        function setRefreshToken() {
+            const token = document.getElementById('manualRefreshToken').value;
+            
+            if (!token) {
+                showAlert('Please enter a refresh token!', 'error');
+                return;
+            }
+            
+            state.oauth.refreshToken = token;
+            document.getElementById('continueToOrg').disabled = false;
+            document.getElementById('fetchOrgBtn').disabled = false;
+            
+            markStepComplete('oauth');
+            showAlert('Refresh token set successfully!', 'success');
+        }
+
+        function fetchOrganizationId() {
+            const { clientId } = state.credentials;
+            const { refreshToken } = state.oauth;
+            
+            if (!clientId || !refreshToken) {
+                showAlert('Please complete the OAuth flow first!', 'error');
+                return;
+            }
+            
+            const btn = document.getElementById('fetchOrgBtn');
+            btn.disabled = true;
+            btn.classList.add('loading');
+            btn.textContent = 'Fetching...';
+            
+            // Simulate API call (replace with actual implementation)
+            setTimeout(() => {
+                const mockOrgId = '869860407';
+                state.organization.orgId = mockOrgId;
+                document.getElementById('organizationId').value = mockOrgId;
+                document.getElementById('orgIdResult').textContent = mockOrgId;
+                document.getElementById('orgResult').classList.remove('hidden');
+                
+                btn.disabled = false;
+                btn.classList.remove('loading');
+                btn.textContent = '🔍 Fetch Organization ID';
+                
+                markStepComplete('organization');
+                showAlert('Organization ID fetched successfully!', 'success');
+            }, 2000);
+        }
+
+        function setOrganizationId() {
+            const orgId = document.getElementById('organizationId').value;
+            
+            if (!orgId) {
+                showAlert('Please enter an organization ID!', 'error');
+                return;
+            }
+            
+            state.organization.orgId = orgId;
+            document.getElementById('orgIdResult').textContent = orgId;
+            document.getElementById('orgResult').classList.remove('hidden');
+            
+            markStepComplete('organization');
+            showAlert('Organization ID set successfully!', 'success');
+        }
+
+        function updateScopePreset() {
+            const preset = document.querySelector('input[name="preset"]:checked').value;
+            let scopes = '';
+            
+            switch(preset) {
+                case 'full':
+                    scopes = 'ZohoCRM.modules.ALL,ZohoCRM.settings.ALL,ZohoBooks.fullaccess.all';
+                    break;
+                case 'crm':
+                    scopes = 'ZohoCRM.modules.ALL,ZohoCRM.settings.ALL';
+                    break;
+                case 'books':
+                    scopes = 'ZohoBooks.fullaccess.all';
+                    break;
+                case 'custom':
+                    scopes = document.getElementById('customScopes').value;
+                    break;
+            }
+            
+            state.scopes.selected = scopes;
+            document.getElementById('customScopes').value = scopes;
+        }
+
+        function updateCustomScopes() {
+            state.scopes.selected = document.getElementById('customScopes').value;
+        }
+
+        function generateConfiguration() {
+            const { clientId, clientSecret, redirectUri, dataCenter } = state.credentials;
+            const { refreshToken } = state.oauth;
+            const { orgId } = state.organization;
+            const { selected: scopes } = state.scopes;
+            
+            if (!clientId || !clientSecret || !refreshToken) {
+                showAlert('Please complete all required steps!', 'error');
+                return;
+            }
+            
+            let config = `# Zoho MCP Server Configuration\n`;
+            config += `ZOHO_CLIENT_ID=${clientId}\n`;
+            config += `ZOHO_CLIENT_SECRET=${clientSecret}\n`;
+            config += `ZOHO_REDIRECT_URI=${redirectUri}\n`;
+            config += `ZOHO_REFRESH_TOKEN=${refreshToken}\n`;
+            config += `ZOHO_DATA_CENTER=${dataCenter}\n`;
+            
+            if (orgId) {
+                config += `ZOHO_BOOKS_ORGANIZATION_ID=${orgId}\n`;
+            }
+            
+            config += `ZOHO_SCOPES=${scopes}\n`;
+            
+            const output = document.getElementById('configOutput');
+            output.textContent = config;
+            output.classList.remove('hidden');
+            
+            document.getElementById('configActions').classList.remove('hidden');
+            document.getElementById('completeSetup').disabled = false;
+            
+            markStepComplete('configuration');
+        }
+
+        function copyConfiguration() {
+            const output = document.getElementById('configOutput');
+            const text = output.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                showAlert('Configuration copied to clipboard!', 'success');
+            }).catch(() => {
+                showAlert('Failed to copy configuration', 'error');
+            });
+        }
+
+        function downloadConfiguration() {
+            const output = document.getElementById('configOutput');
+            const text = output.textContent;
+            
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'zoho-mcp-config.env';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showAlert('Configuration downloaded!', 'success');
+        }
+
+        function navigateToStep(step) {
+            if (!canNavigateToStep(step)) return;
+            
+            // Hide all sections
+            document.querySelectorAll('.step-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Show target section
+            document.getElementById(step).classList.add('active');
+            
+            // Update navigation
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            document.querySelector(`[data-step="${step}"]`).classList.add('active');
+            
+            state.currentStep = step;
+            updateProgressBar();
+            updateUI();
+        }
+
+        function canNavigateToStep(step) {
+            const steps = ['credentials', 'oauth', 'organization', 'scopes', 'configuration'];
+            const currentIndex = steps.indexOf(state.currentStep);
+            const targetIndex = steps.indexOf(step);
+            
+            // Can always go back
+            if (targetIndex <= currentIndex) return true;
+            
+            // Can only go forward if current step is complete
+            if (targetIndex === currentIndex + 1 && state.completedSteps.includes(state.currentStep)) {
+                return true;
+            }
+            
+            return false;
+        }
+
+        function markStepComplete(step) {
+            if (!state.completedSteps.includes(step)) {
+                state.completedSteps.push(step);
+            }
+            
+            const navItem = document.querySelector(`[data-step="${step}"]`);
+            if (navItem) {
+                navItem.classList.add('completed');
+            }
+            
+            updateProgressBar();
+        }
+
+        function updateProgressBar() {
+            const totalSteps = 5;
+            const completedSteps = state.completedSteps.length;
+            const progress = (completedSteps / totalSteps) * 100;
+            
+            const progressFill = document.getElementById('progressFill');
+            progressFill.style.width = `${progress}%`;
+        }
+
+        function updateUI() {
+            // Update review section
+            const { clientId, clientSecret, redirectUri, dataCenter } = state.credentials;
+            const { refreshToken } = state.oauth;
+            const { orgId } = state.organization;
+            const { selected: scopes } = state.scopes;
+            
+            document.getElementById('reviewClientId').textContent = clientId || 'Not set';
+            document.getElementById('reviewClientSecret').textContent = clientSecret ? '***' + clientSecret.slice(-4) : 'Not set';
+            document.getElementById('reviewRedirectUri').textContent = redirectUri || 'Not set';
+            document.getElementById('reviewRefreshToken').textContent = refreshToken ? '***' + refreshToken.slice(-4) : 'Not set';
+            document.getElementById('reviewDataCenter').textContent = dataCenter || 'Not set';
+            document.getElementById('reviewOrgId').textContent = orgId || 'Not set';
+            document.getElementById('reviewScopes').textContent = scopes || 'Not set';
+            
+            // Update generate config button
+            const generateBtn = document.getElementById('generateConfigBtn');
+            if (clientId && clientSecret && refreshToken) {
+                generateBtn.disabled = false;
+            } else {
+                generateBtn.disabled = true;
+            }
+        }
+
+        function showAlert(message, type) {
+            // Create alert element
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            
+            // Insert at top of current step
+            const currentSection = document.querySelector('.step-section.active');
+            const stepHeader = currentSection.querySelector('.step-header');
+            stepHeader.insertAdjacentElement('afterend', alert);
+            
+            // Remove after 5 seconds
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const copyBtn = element.querySelector('.copy-btn');
+                if (copyBtn) {
+                    const originalText = copyBtn.textContent;
+                    copyBtn.textContent = '✅ Copied!';
+                    setTimeout(() => {
+                        copyBtn.textContent = originalText;
+                    }, 2000);
+                }
+            }).catch(() => {
+                showAlert('Failed to copy to clipboard', 'error');
+            });
+        }
+    </script>
+</body>
+</html>

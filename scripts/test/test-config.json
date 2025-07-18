@@ -1,0 +1,33 @@
+{
+  "environments": {
+    "test": {
+      "clientId": "test_client_id",
+      "clientSecret": "test_client_secret",
+      "redirectUri": "http://localhost:3000/callback",
+      "refreshToken": "test_refresh_token",
+      "dataCenter": "com",
+      "organizationId": "test_org_id",
+      "scopes": ["ZohoCRM.modules.ALL", "ZohoBooks.fullaccess.all"]
+    },
+    "test-security": {
+      "clientId": "security_test_client_id",
+      "clientSecret": "security_test_client_secret",
+      "redirectUri": "http://localhost:3000/callback",
+      "refreshToken": "security_test_refresh_token",
+      "dataCenter": "com",
+      "organizationId": "security_test_org_id",
+      "scopes": ["ZohoCRM.modules.ALL", "ZohoBooks.fullaccess.all"]
+    },
+    "test-performance": {
+      "clientId": "performance_test_client_id",
+      "clientSecret": "performance_test_client_secret",
+      "redirectUri": "http://localhost:3000/callback",
+      "refreshToken": "performance_test_refresh_token",
+      "dataCenter": "com",
+      "organizationId": "performance_test_org_id",
+      "scopes": ["ZohoCRM.modules.ALL", "ZohoBooks.fullaccess.all"]
+    }
+  },
+  "currentEnvironment": "test",
+  "autoSwitch": false
+} 
