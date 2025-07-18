@@ -116,4 +116,5 @@ config/*.json
 disposition-records.csv
 disposition-test-results.json
 simple-disposition-test.js
-test-enhanced-picklist.js 
+test-enhanced-picklist.js
+lead_disposition_mapping.csv 
