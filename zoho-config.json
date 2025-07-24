@@ -4,7 +4,7 @@
     "default": {
       "name": "default",
       "description": "Default environment from .env file",
-      "activeProfile": "main",
+      "activeProfile": "edgestone",
       "profiles": {
         "main": {
           "name": "main",
@@ -24,9 +24,28 @@
           "isActive": true,
           "createdAt": "2025-07-18T15:08:13.419Z",
           "updatedAt": "2025-07-18T16:08:59.938Z"
+        },
+        "edgestone": {
+          "name": "edgestone",
+          "description": "EdgeStone organization profile",
+          "clientId": "1000.ZXO2LP1R52XTB6IJBTH154V4602JLM",
+          "clientSecret": "4c002c24b0b809e16ea8ec7327bccf1fe36986dc81",
+          "redirectUri": "http://localhost:3000/callback",
+          "refreshToken": "1000.27f9203f9e0401fc69b548f984321a42.a3b22ef2ac8ca1f0c68db376c257cf7b",
+          "dataCenter": "com",
+          "scopes": [
+            "ZohoCRM.modules.ALL",
+            "ZohoCRM.settings.ALL",
+            "ZohoCRM.settings.global_picklist.READ",
+            "ZohoBooks.fullaccess.all"
+          ],
+          "organizationId": "869860407",
+          "isActive": true,
+          "updatedAt": "2025-07-23T08:33:26.620Z",
+          "createdAt": "2025-07-23T08:33:26.620Z"
         }
       }
     }
   },
-  "lastUpdated": "2025-07-18T17:57:00.259Z"
+  "lastUpdated": "2025-07-23T08:34:18.863Z"
 }

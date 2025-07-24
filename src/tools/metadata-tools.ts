@@ -1,4 +1,4 @@
-import { ZohoCRMClient } from '../clients/crm-client';
+import { ZohoCRMClient } from '../lib/clients/crm-client';
 import { 
   ZohoCRMModule, 
   ZohoCRMField, 
@@ -15,7 +15,7 @@ import {
   ZohoCRMPipeline, 
   ZohoCRMAssignmentRule, 
   ZohoCRMBlueprint 
-} from '../types';
+} from '../lib/types';
 
 export class ZohoCRMMetadataTools {
   private cache = new Map<string, { data: any; timestamp: number; ttl: number }>();

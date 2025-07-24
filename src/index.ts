@@ -10,23 +10,31 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import dotenv from 'dotenv';
 
-import { ZohoAuthManager } from './auth/oauth-manager.js';
-import { ZohoCRMClient } from './clients/crm-client.js';
-import { ZohoBooksClient } from './clients/books-client.js';
+import { ZohoAuthManager } from './lib/auth/oauth-manager.js';
+import { ZohoCRMClient } from './lib/clients/crm-client.js';
+import { ZohoBooksClient } from './lib/clients/books-client.js';
+import { ZohoPeopleClient } from './lib/clients/people-client.js';
+import { ZohoDeskClient } from './lib/clients/desk-client.js';
 import { ZohoSyncTools } from './tools/sync-tools.js';
 import { BooksItemsTools, BooksEstimatesTools, BooksPaymentsTools, BooksInvoicesTools, BooksCustomersTools, BooksSalesOrdersTools, BooksCreditNotesTools, BooksPurchaseOrdersTools, BooksBillsTools } from './tools/books-tools.js';
 import { CRMTasksTools, CRMEventsTools, CRMNotesTools, CRMAttachmentsTools, CRMEmailTools } from './tools/crm-activities-tools.js';
+import { CRMRecordsTools } from './tools/crm-records-tools.js';
 import { GenericModuleTools } from './tools/generic-module-tools.js';
 import { ZohoCRMMetadataTools } from './tools/metadata-tools.js';
 import { ConfigManagementTools } from './tools/config-tools.js';
-import { ZohoConfigManager } from './utils/config-manager.js';
+import { PeopleTools } from './tools/people-tools.js';
+import { DeskTools } from './tools/desk-tools.js';
+import { ZohoConfigManager } from './lib/utils/config-manager.js';
+import { WorkflowIntelligence } from './lib/utils/workflow-intelligence.js';
+import { SmartQueryBuilders } from './lib/utils/smart-query-builders.js';
 import { 
   ZohoConfig,
   ServerConfig,
   SyncParamsSchema,
   CreateInvoiceParamsSchema,
-  SearchParamsSchema
-} from './types/index.js';
+  SearchParamsSchema,
+  EnhancedToolResponse
+} from './lib/types/index.js';
 import {
   ItemParamsSchema,
   GetItemsParamsSchema,
@@ -57,6 +65,24 @@ import {
   EmailParamsSchema,
   GetAttachmentsParamsSchema
 } from './tools/crm-activities-tools.js';
+import {
+  GetTimelineParamsSchema,
+  SearchByTimelineParamsSchema,
+  GetFieldChangesParamsSchema,
+  AnalyzeActivityPatternsParamsSchema
+} from './tools/crm-records-tools.js';
+import {
+  PeopleGetModulesParamsSchema,
+  PeopleGetFieldsParamsSchema,
+  PeopleSearchRecordsParamsSchema,
+  PeopleGetTimelineParamsSchema
+} from './tools/people-tools.js';
+import {
+  DeskGetDepartmentsParamsSchema,
+  DeskGetEntityFieldsParamsSchema,
+  DeskSearchEntitiesParamsSchema,
+  DeskGetEntityTimelineParamsSchema
+} from './tools/desk-tools.js';
 
 // Load environment variables
 dotenv.config();
@@ -66,6 +92,8 @@ export class ZohoMCPServer {
   private authManager!: ZohoAuthManager;
   private crmClient!: ZohoCRMClient;
   private booksClient!: ZohoBooksClient;
+  private peopleClient!: ZohoPeopleClient;
+  private deskClient!: ZohoDeskClient;
   private syncTools!: ZohoSyncTools;
   private booksItemsTools!: BooksItemsTools;
   private booksEstimatesTools!: BooksEstimatesTools;
@@ -81,9 +109,12 @@ export class ZohoMCPServer {
   private crmNotesTools!: CRMNotesTools;
   private crmAttachmentsTools!: CRMAttachmentsTools;
   private crmEmailTools!: CRMEmailTools;
+  private crmRecordsTools!: CRMRecordsTools;
   private genericModuleTools!: GenericModuleTools;
   private metadataTools!: ZohoCRMMetadataTools;
   private configTools!: ConfigManagementTools;
+  private peopleTools!: PeopleTools;
+  private deskTools!: DeskTools;
   private configManager!: ZohoConfigManager;
   private config!: ServerConfig;
   private zohoConfig!: ZohoConfig;
@@ -157,6 +188,8 @@ export class ZohoMCPServer {
     }
     
     this.booksClient = new ZohoBooksClient(this.authManager, this.zohoConfig.dataCenter, organizationId);
+    this.peopleClient = new ZohoPeopleClient(this.authManager, this.zohoConfig.dataCenter);
+    this.deskClient = new ZohoDeskClient(this.authManager, this.zohoConfig.dataCenter);
     this.syncTools = new ZohoSyncTools(this.crmClient, this.booksClient);
     this.booksItemsTools = new BooksItemsTools(this.booksClient);
     this.booksEstimatesTools = new BooksEstimatesTools(this.booksClient);
@@ -172,9 +205,12 @@ export class ZohoMCPServer {
     this.crmNotesTools = new CRMNotesTools(this.crmClient);
     this.crmAttachmentsTools = new CRMAttachmentsTools(this.crmClient);
     this.crmEmailTools = new CRMEmailTools(this.crmClient);
+    this.crmRecordsTools = new CRMRecordsTools(this.crmClient);
     this.genericModuleTools = new GenericModuleTools(this.crmClient);
     this.metadataTools = new ZohoCRMMetadataTools(this.crmClient);
     this.configTools = new ConfigManagementTools(this.configManager);
+    this.peopleTools = new PeopleTools(this.peopleClient);
+    this.deskTools = new DeskTools(this.deskClient);
   }
 
   private setupHandlers(): void {
@@ -336,7 +372,7 @@ export class ZohoMCPServer {
           // Books Customers Management Tools
           {
             name: 'books_get_customers',
-            description: 'Get customer list from Books with filtering and pagination. Use for finding customers before creating invoices/payments or browsing customer directory.\n\nExample: Find customers by name\n{"search_text": "John", "per_page": 10}',
+            description: 'Get customer list from Books with filtering and pagination. **WORKFLOW STARTER** for Books financial operations.\\n\\n**Prerequisites:** Books access with customer management permissions\\n\\n**Next Steps:**\\n→ Use `books_get_customer` for detailed customer information\\n→ Use customer_id in `books_create_invoice` for billing\\n→ Use customer_id in `books_create_payment` for payment processing\\n\\n**Common Financial Workflow:** **books_get_customers** → books_get_customer → books_create_invoice → books_create_payment\\n\\n**Example:** Find customers by name\\n{"search_text": "John", "per_page": 10}\\n\\n**Error Recovery:** If no customers found, verify search filters and Books access permissions',
             inputSchema: {
               type: 'object',
               title: 'Books Customer List',
@@ -498,7 +534,7 @@ export class ZohoMCPServer {
           // Books Items Management Tools
           {
             name: 'books_get_items',
-            description: 'Get all items from Books',
+            description: 'Get all items from Books including products and services available for billing. **ESSENTIAL** for invoice line items.\\n\\n**Prerequisites:** Books access with inventory management permissions\\n\\n**Next Steps:**\\n→ Use item_id and details for `books_create_invoice` line items\\n→ Use `books_get_item` for detailed item information\\n→ Use `books_create_item` to add new products/services\\n\\n**Inventory to Billing Workflow:** **books_get_items** → books_create_invoice (with line items) → books_create_payment\\n\\n**Error Recovery:** If no items found, verify Books inventory setup and permissions',
             inputSchema: {
               type: 'object',
               title: 'Books Items List',
@@ -764,7 +800,7 @@ export class ZohoMCPServer {
           },
           {
             name: 'books_create_invoice',
-            description: 'Create a new invoice in Books',
+            description: 'Create a new invoice in Books for billing customers. **KEY FINANCIAL OPERATION** in the Books workflow.\\n\\n**Prerequisites:**\\n→ Use `books_get_customers` first to find target customer\\n→ Use `books_get_items` to discover available products/services for line items\\n→ Have valid customer_id from customer discovery\\n\\n**Next Steps:**\\n→ Use `books_create_payment` to record payment against the invoice\\n→ Use `books_get_invoice` to verify invoice creation\\n→ Use invoice_id for payment tracking and reporting\\n\\n**Complete Billing Workflow:** books_get_customers → books_get_items → **books_create_invoice** → books_create_payment\\n\\n**Error Recovery:** If creation fails, verify customer_id exists and line_items are properly formatted',
             inputSchema: {
               type: 'object',
               properties: {
@@ -808,6 +844,11 @@ export class ZohoMCPServer {
                 template_id: { type: 'string' }
               },
               required: ['customer_id', 'line_items']
+            },
+            annotations: {
+              readOnlyHint: false,
+              idempotentHint: false,
+              openWorldHint: true
             }
           },
           {
@@ -868,6 +909,12 @@ export class ZohoMCPServer {
                 invoice_id: { type: 'string' }
               },
               required: ['invoice_id']
+            },
+            annotations: {
+              readOnlyHint: false,
+              idempotentHint: true,
+              destructiveHint: true,
+              openWorldHint: true
             }
           },
           {
@@ -895,6 +942,29 @@ export class ZohoMCPServer {
               required: ['invoice_id']
             }
           },
+          
+          // Books Sales Orders Management Tools
+          {
+            name: 'books_get_sales_orders',
+            description: 'Get all sales orders from Books with filtering and pagination\\n\\n**Prerequisites:** Books access with sales order read permissions\\n**Next Steps:** Use books_create_invoice to convert sales orders to invoices\\n**Workflow:** Sales order management → invoice conversion → payment tracking\\n**Error Recovery:** If no sales orders found, verify Books access and search filters',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                page: { type: 'number', minimum: 1, default: 1, description: 'Page number for pagination' },
+                per_page: { type: 'number', minimum: 1, maximum: 200, default: 20, description: 'Sales orders per page (max 200)' },
+                customer_id: { type: 'string', description: 'Filter by customer ID' },
+                salesorder_number: { type: 'string', description: 'Filter by sales order number' },
+                reference_number: { type: 'string', description: 'Filter by reference number' },
+                status: { type: 'string', description: 'Filter by status (draft, confirmed, closed, cancelled)' },
+                date_from: { type: 'string', format: 'date', description: 'Start date filter (YYYY-MM-DD)' },
+                date_to: { type: 'string', format: 'date', description: 'End date filter (YYYY-MM-DD)' },
+                search_text: { type: 'string', description: 'Global search across sales order fields' },
+                sort_column: { type: 'string', description: 'Column to sort by' },
+                sort_order: { type: 'string', enum: ['A', 'D'], description: 'Sort order: A=ascending, D=descending' }
+              }
+            }
+          },
+          
           // Books Credit Notes Management Tools
           {
             name: 'books_get_credit_notes',
@@ -1996,10 +2066,15 @@ export class ZohoMCPServer {
           // CRM Metadata Tools
           {
             name: 'crm_get_all_modules',
-            description: 'Get all CRM modules with metadata',
+            description: 'Get all CRM modules with metadata\\n\\n**WORKFLOW STARTER** for CRM module discovery\\n\\n**Next Steps:** Use crm_get_fields for field discovery → crm_validate_criteria → crm_search_records\\n**Pagination:** Use page and per_page to limit response size and avoid token limits\\n**Error Recovery:** If response too large, use smaller per_page values (try 10-20)',
             inputSchema: {
               type: 'object',
-              properties: {},
+              properties: {
+                page: { type: 'number', minimum: 1, default: 1, description: 'Page number for pagination (starts at 1)' },
+                per_page: { type: 'number', minimum: 1, maximum: 50, default: 20, description: 'Modules per page (1-50, recommended: 10-20)' },
+                include_system_modules: { type: 'boolean', default: true, description: 'Include standard system modules' },
+                include_custom_modules: { type: 'boolean', default: true, description: 'Include custom modules' }
+              },
               required: []
             }
           },
@@ -2031,7 +2106,7 @@ export class ZohoMCPServer {
           },
           {
             name: 'crm_get_field_details',
-            description: 'Get detailed metadata for a specific field',
+            description: 'Get detailed metadata for a specific field including data type, validation rules, picklist values, and dependencies.\\n\\n**Prerequisites:**\\n→ Use `crm_get_fields` or `crm_get_module_fields` first to discover available field names\\n→ Have valid module_name and field_name from field discovery\\n\\n**Next Steps:**\\n→ Use field details for `crm_validate_criteria` to ensure correct operators\\n→ Use `crm_get_dependent_fields` to understand field relationships\\n→ Use field information in `crm_search_records` criteria\\n\\n**Common Pattern:** crm_get_fields → **crm_get_field_details** → crm_validate_criteria → crm_search_records\\n\\n**Error Recovery:** If "Field not found" error, verify field_name with crm_get_fields',
             inputSchema: {
               type: 'object',
               properties: {
@@ -2039,6 +2114,70 @@ export class ZohoMCPServer {
                 module_name: { type: 'string', description: 'Name of the module' }
               },
               required: ['field_id', 'module_name']
+            }
+          },
+          {
+            name: 'crm_get_timeline',
+            description: 'Get timeline history for a CRM record showing all field changes, activities, and audit trail\\n\\n**Prerequisites:** Use crm_search_records to find target record_id\\n**Next Steps:** Use crm_analyze_activity_patterns for trend analysis → crm_get_field_changes for specific field tracking\\n**Complete Workflow:** crm_search_records → crm_get_timeline → analysis\\n**Error Recovery:** If timeline empty, verify record_id exists and has activity history',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                module_name: { type: 'string', description: 'Name of the module (e.g., "Leads", "Deals", "Contacts")' },
+                record_id: { type: 'string', description: 'ID of the record to get timeline for' },
+                timeline_types: { type: 'array', items: { type: 'string' }, description: 'Optional timeline entry types to include' },
+                include_inner_details: { type: 'boolean', description: 'Include detailed inner information' },
+                page: { type: 'number', minimum: 1, description: 'Page number for pagination' },
+                per_page: { type: 'number', minimum: 1, maximum: 200, description: 'Entries per page (max 200)' }
+              },
+              required: ['module_name', 'record_id']
+            }
+          },
+          {
+            name: 'crm_search_by_timeline',
+            description: 'Search records by timeline events - find records modified within date ranges\\n\\n**Prerequisites:** None - timeline-based discovery tool\\n**Next Steps:** Use crm_get_timeline for detailed analysis → crm_get_field_changes for specific tracking\\n**Use Cases:** Recent activity analysis, audit trails, change tracking\\n**Error Recovery:** If no results, try broader date range or different action types',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                module_name: { type: 'string', description: 'Module name (standard or custom)' },
+                date_from: { type: 'string', description: 'Start date (YYYY-MM-DD or ISO 8601)' },
+                date_to: { type: 'string', description: 'End date (YYYY-MM-DD or ISO 8601)' },
+                action: { type: 'string', enum: ['created', 'updated', 'deleted'], description: 'Filter by action type' },
+                modified_by: { type: 'string', description: 'Filter by user who made changes' },
+                per_page: { type: 'number', minimum: 1, maximum: 200, description: 'Records per page (max 200)' },
+                page: { type: 'number', minimum: 1, description: 'Page number for pagination' }
+              },
+              required: ['module_name', 'date_from']
+            }
+          },
+          {
+            name: 'crm_get_field_changes',
+            description: 'Track field change history for records - detailed audit of specific field modifications\\n\\n**Prerequisites:** Use crm_search_records or crm_search_by_timeline to find target records\\n**Next Steps:** Use crm_analyze_activity_patterns for trend analysis → Generate change reports\\n**Business Value:** Compliance tracking, change audit, data quality monitoring\\n**Error Recovery:** If no changes found, verify field names and date range',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                module_name: { type: 'string', description: 'Module name (standard or custom)' },
+                record_ids: { type: 'array', items: { type: 'string' }, description: 'Specific record IDs to analyze' },
+                field_names: { type: 'array', items: { type: 'string' }, description: 'Specific field names to track' },
+                date_from: { type: 'string', description: 'Start date (YYYY-MM-DD or ISO 8601)' },
+                date_to: { type: 'string', description: 'End date (YYYY-MM-DD or ISO 8601)' },
+                per_page: { type: 'number', minimum: 1, maximum: 200, description: 'Timeline entries per record (max 200)' }
+              },
+              required: ['module_name', 'date_from']
+            }
+          },
+          {
+            name: 'crm_analyze_activity_patterns',
+            description: 'Analyze activity patterns and trends in CRM data - business intelligence for user behavior\\n\\n**Prerequisites:** Use crm_search_by_timeline to identify activity periods\\n**Next Steps:** Generate insights reports → Optimize workflows → User performance analysis\\n**Business Value:** Team productivity analysis, workflow optimization, trend identification\\n**Error Recovery:** If insufficient data, try broader date range or different grouping',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                module_name: { type: 'string', description: 'Module name (standard or custom)' },
+                date_from: { type: 'string', description: 'Start date (YYYY-MM-DD or ISO 8601)' },
+                date_to: { type: 'string', description: 'End date (YYYY-MM-DD or ISO 8601)' },
+                group_by: { type: 'string', enum: ['user', 'field', 'day', 'hour'], description: 'How to group the analysis' },
+                per_page: { type: 'number', minimum: 1, maximum: 200, description: 'Records to analyze (max 200)' }
+              },
+              required: ['module_name', 'date_from']
             }
           },
           {
@@ -2136,7 +2275,7 @@ export class ZohoMCPServer {
           },
           {
             name: 'crm_get_layouts',
-            description: 'Get all layouts for modules',
+            description: 'Get all layouts for modules including page layouts, related lists, and section configurations.\\n\\n**Prerequisites:** Use `crm_get_all_modules` first to discover available modules\\n\\n**Next Steps:**\\n→ Use `crm_get_layout_details` for specific layout configuration analysis\\n→ Use layout information for UI customization workflows\\n→ Use `crm_update_layout` if modifications are needed\\n\\n**Common Pattern:** crm_get_all_modules → **crm_get_layouts** → crm_get_layout_details → crm_update_layout\\n\\n**Error Recovery:** If no layouts found, check module permissions and layout availability',
             inputSchema: {
               type: 'object',
               properties: {
@@ -2147,7 +2286,7 @@ export class ZohoMCPServer {
           },
           {
             name: 'crm_get_layout_details',
-            description: 'Get detailed metadata for a specific layout',
+            description: 'Get detailed metadata for a specific layout including sections, fields, and display rules.\\n\\n**Prerequisites:**\\n→ Use `crm_get_layouts` first to discover available layout IDs\\n→ Have valid layout_id from layout discovery\\n\\n**Next Steps:**\\n→ Use layout details for UI customization analysis\\n→ Use `crm_update_layout` to modify layout configuration\\n→ Use section information for field organization workflows\\n\\n**Common Pattern:** crm_get_layouts → **crm_get_layout_details** → crm_update_layout\\n\\n**Error Recovery:** If "Layout not found" error, verify layout_id with crm_get_layouts',
             inputSchema: {
               type: 'object',
               properties: {
@@ -2170,7 +2309,7 @@ export class ZohoMCPServer {
           },
           {
             name: 'crm_get_all_profiles',
-            description: 'Get all profiles in the organization',
+            description: 'Get all profiles in the organization\n\n**Prerequisites:** None - this is a discovery tool for organizational structure\n**Next Steps:** Use crm_get_user_details for users associated with specific profiles → crm_get_all_roles to understand role hierarchy → crm_update_profile for permission modifications\n**Common Pattern:** Profile discovery → User-profile analysis → Permission management workflow\n**Error Recovery:** If API fails, verify organization access permissions and try crm_get_organization_details first',
             inputSchema: {
               type: 'object',
               properties: {},
@@ -2202,7 +2341,7 @@ export class ZohoMCPServer {
           },
           {
             name: 'crm_get_all_roles',
-            description: 'Get all roles in the organization',
+            description: 'Get all roles in the organization\n\n**Prerequisites:** Use crm_get_all_profiles first to understand profile-role relationships\n**Next Steps:** Use crm_get_role_details for specific role analysis → crm_get_all_users to see role assignments → crm_update_role for modifications\n**Common Pattern:** Role discovery → Role detail analysis → User assignment review → Role management\n**Error Recovery:** If role list is empty, check organization setup with crm_get_organization_details → verify user permissions',
             inputSchema: {
               type: 'object',
               properties: {},
@@ -2211,7 +2350,7 @@ export class ZohoMCPServer {
           },
           {
             name: 'crm_get_role_details',
-            description: 'Get detailed metadata for a specific role',
+            description: 'Get detailed metadata for a specific role including permissions and hierarchy\n\n**Prerequisites:** Use crm_get_all_roles to identify target role_id\n**Next Steps:** Use crm_get_all_users with role filter → crm_get_all_profiles to see profile associations → crm_update_role for permission changes\n**Common Pattern:** Role identification → Detailed role analysis → User impact assessment → Role modification workflow\n**Error Recovery:** If role_id not found, refresh with crm_get_all_roles → verify role still exists → check access permissions',
             inputSchema: {
               type: 'object',
               properties: {
@@ -2256,7 +2395,7 @@ export class ZohoMCPServer {
           },
           {
             name: 'crm_get_all_users',
-            description: 'Get all users in the organization',
+            description: 'Get all users in the organization with optional type filtering (AllUsers, AdminUsers, etc.)\n\n**Prerequisites:** Use crm_get_all_profiles and crm_get_all_roles first for context\n**Next Steps:** Use crm_get_user_details for specific user analysis → crm_get_organization_details for user limits → crm_create_user for new users\n**Common Pattern:** User discovery → Individual user analysis → Role/profile assignment → User management operations\n**Error Recovery:** If user list incomplete, try different type filters → check organization user limits → verify API permissions',
             inputSchema: {
               type: 'object',
               properties: {
@@ -2267,7 +2406,7 @@ export class ZohoMCPServer {
           },
           {
             name: 'crm_get_user_details',
-            description: 'Get detailed metadata for a specific user',
+            description: 'Get detailed metadata for a specific user including roles, profiles, and permissions\n\n**Prerequisites:** Use crm_get_all_users to identify target user_id\n**Next Steps:** Use crm_get_role_details for user\'s role analysis → crm_get_all_profiles for profile permissions → crm_update_user for modifications\n**Common Pattern:** User identification → Detailed user analysis → Permission audit → User configuration changes\n**Error Recovery:** If user_id not found, refresh with crm_get_all_users → verify user still active → check access to user data',
             inputSchema: {
               type: 'object',
               properties: {
@@ -2289,7 +2428,7 @@ export class ZohoMCPServer {
           },
           {
             name: 'crm_get_organization_details',
-            description: 'Get organization details and settings',
+            description: 'Get organization details and settings including configuration, limits, and administrative info\n\n**Prerequisites:** None - foundational tool for understanding organizational context\n**Next Steps:** Use crm_get_organization_features for feature analysis → crm_get_all_users for user management → crm_get_all_modules for system scope\n**Common Pattern:** Organization discovery → Feature assessment → User/module analysis → Configuration management\n**Error Recovery:** If details unavailable, verify API credentials → check admin permissions → try crm_get_organization_features as alternative',
             inputSchema: {
               type: 'object',
               properties: {},
@@ -2298,7 +2437,7 @@ export class ZohoMCPServer {
           },
           {
             name: 'crm_get_organization_features',
-            description: 'Get organization features and limits',
+            description: 'Get organization features and limits including API limits, storage, user counts, and enabled features\n\n**Prerequisites:** Use crm_get_organization_details first for general context\n**Next Steps:** Use crm_get_all_users to verify user count against limits → crm_get_all_modules to check feature availability → plan capacity management\n**Common Pattern:** Organization assessment → Feature availability check → Capacity planning → Usage optimization\n**Error Recovery:** If features not accessible, verify admin permissions → try crm_get_organization_details → check API rate limits',
             inputSchema: {
               type: 'object',
               properties: {},
@@ -2307,7 +2446,7 @@ export class ZohoMCPServer {
           },
           {
             name: 'crm_get_custom_views',
-            description: 'Get all custom views for a module',
+            description: 'Get all custom views for a module including system and user-defined views\n\n**Prerequisites:** Use crm_get_all_modules to verify module_name exists and is accessible\n**Next Steps:** Use crm_get_custom_view_details for specific view analysis → crm_search_records with view filters → crm_create_custom_view for new views\n**Common Pattern:** Module discovery → View listing → View analysis → Record filtering with views → View management\n**Error Recovery:** If no views found, verify module_name spelling → check module permissions → try crm_get_module_metadata first',
             inputSchema: {
               type: 'object',
               properties: {
@@ -2318,7 +2457,7 @@ export class ZohoMCPServer {
           },
           {
             name: 'crm_get_custom_view_details',
-            description: 'Get detailed metadata for a specific custom view',
+            description: 'Get detailed metadata for a specific custom view including criteria, fields, and sorting\n\n**Prerequisites:** Use crm_get_custom_views to identify target custom_view_id\n**Next Steps:** Use crm_search_records with view criteria → crm_get_fields for field analysis → crm_update_custom_view for modifications\n**Common Pattern:** View identification → View configuration analysis → Record retrieval with view → View optimization\n**Error Recovery:** If view_id not found, refresh with crm_get_custom_views → verify view still exists → check view permissions',
             inputSchema: {
               type: 'object',
               properties: {
@@ -2330,7 +2469,7 @@ export class ZohoMCPServer {
           },
           {
             name: 'crm_get_related_lists',
-            description: 'Get all related lists for a module',
+            description: 'Get all related lists for a module showing relationships with other modules\\n\\n**Prerequisites:** Use crm_get_all_modules to verify module_name and understand module relationships\\n**Next Steps:** Use crm_get_module_metadata for related modules → crm_get_records with related data → crm_get_fields for relationship fields\\n**Common Pattern:** Module relationship discovery → Related module analysis → Cross-module record retrieval → Relationship management\\n**Error Recovery:** If no related lists found, verify module_name → check if module supports relationships → try crm_get_module_metadata',
             inputSchema: {
               type: 'object',
               properties: {
@@ -2417,7 +2556,7 @@ export class ZohoMCPServer {
           },
           {
             name: 'crm_get_picklist_values',
-            description: 'Get picklist values for a specific field in a module',
+            description: 'Get picklist values for a specific field in a module including active, inactive values and display labels.\\n\\n**Prerequisites:**\\n→ Use `crm_get_fields` first to identify picklist fields\\n→ Have valid module_name and field_name from field discovery\\n\\n**Next Steps:**\\n→ Use picklist values for `crm_validate_criteria` with exact value matching\\n→ Use values in `crm_search_records` criteria for filtering\\n→ Use for data validation and form building workflows\\n\\n**Common Pattern:** crm_get_fields (identify picklists) → **crm_get_picklist_values** → crm_search_records (with values)\\n\\n**Data Validation:** Essential for ensuring accurate search criteria and data entry\\n**Error Recovery:** If "Field not found" or "Not a picklist", verify field details with crm_get_fields',
             inputSchema: {
               type: 'object',
               properties: {
@@ -2469,6 +2608,178 @@ export class ZohoMCPServer {
               properties: {}
             }
           },
+          // Smart Query Builder Tools
+          {
+            name: 'get_smart_queries',
+            description: 'Get all available smart query builders across Zoho products. Smart queries are pre-built, business-focused workflows that combine multiple tools to solve common business scenarios.\\n\\n**Categories Available:** sales, marketing, finance, hr, support, analytics\\n\\n**Products Covered:** CRM (sales intelligence), Books (financial analysis), People (HR insights), Desk (support optimization)\\n\\n**Example:** Get all sales-focused queries\\n{"category": "sales"}',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                product: { 
+                  type: 'string', 
+                  enum: ['CRM', 'Books', 'People', 'Desk'],
+                  description: 'Filter by specific Zoho product' 
+                },
+                category: { 
+                  type: 'string', 
+                  enum: ['sales', 'marketing', 'finance', 'hr', 'support', 'analytics'],
+                  description: 'Filter by business category' 
+                }
+              }
+            }
+          },
+          {
+            name: 'get_smart_query_plan',
+            description: 'Get detailed execution plan for a specific smart query. Shows the complete tool sequence, parameters, and expected outcomes for business intelligence workflows.\\n\\n**Prerequisites:** Use `get_smart_queries` first to discover available query names\\n\\n**Next Steps:** Execute the returned tool sequence manually or use as guidance for complex analysis workflows\\n\\n**Example:** Get plan for "Hot Leads Pipeline Analysis"\\n{"query_name": "Hot Leads Pipeline Analysis"}',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                query_name: { 
+                  type: 'string', 
+                  description: 'Name of the smart query to get execution plan for' 
+                }
+              },
+              required: ['query_name']
+            }
+          },
+          {
+            name: 'list_business_scenarios',
+            description: 'List common business scenarios and their recommended smart query solutions. Perfect for discovering workflow automation opportunities.\\n\\n**Business Areas:** Sales forecasting, Customer retention, Cash flow optimization, Employee performance, Support efficiency\\n\\n**Output:** Curated list of business scenarios with matching smart queries and expected ROI\\n\\n**Example:** {}',
+            inputSchema: {
+              type: 'object',
+              properties: {}
+            }
+          },
+          
+          // === HR & PEOPLE MANAGEMENT ===
+          {
+            name: 'people_get_all_modules',
+            description: 'Get all available Zoho People modules (Employees, Departments, Attendance, etc.)\\n\\n**Prerequisites:** Zoho People access with module read permissions\\n**Next Steps:** Use people_get_fields for module field discovery → people_search_records for data retrieval\\n**Workflow:** Module discovery → field analysis → record operations\\n**Error Recovery:** If modules not accessible, verify People product access and API permissions',
+            inputSchema: {
+              type: 'object',
+              properties: {}
+            },
+            annotations: {
+              readOnlyHint: true,
+              idempotentHint: true,
+              openWorldHint: true
+            }
+          },
+          {
+            name: 'people_get_fields',
+            description: 'Get field metadata for a specific People module with detailed schema information\\n\\n**Prerequisites:** Module name from people_get_all_modules\\n**Next Steps:** Use field api_name values in people_search_records operations\\n**Common Pattern:** Module discovery → field analysis → targeted searches\\n**Error Recovery:** If fields not found, verify module exists and check field access permissions',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                module_name: { type: 'string', description: 'People module name (e.g., "employees", "departments", "attendance", "leave")' },
+                field_id: { type: 'string', description: 'Optional specific field ID for detailed information' }
+              },
+              required: ['module_name']
+            },
+            annotations: {
+              readOnlyHint: true,
+              idempotentHint: true,
+              openWorldHint: true
+            }
+          },
+          {
+            name: 'people_search_records',
+            description: 'Search records in a People module with flexible text-based criteria\\n\\n**Prerequisites:** Module name from people_get_all_modules, optional field details from people_get_fields\\n**Next Steps:** Use people_get_timeline for record activity analysis\\n**Use Cases:** Employee lookup, department searches, attendance tracking\\n**Error Recovery:** If no results, try broader search terms or verify module permissions',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                module_name: { type: 'string', description: 'People module name (e.g., "employees", "departments", "attendance", "leave")' },
+                criteria: { type: 'string', description: 'Search criteria - text to search for in records' },
+                fields: { type: 'array', items: { type: 'string' }, description: 'Specific fields to return (use API names)' },
+                page: { type: 'number', minimum: 1, description: 'Page number for pagination' },
+                per_page: { type: 'number', minimum: 1, maximum: 200, description: 'Records per page (max 200)' }
+              },
+              required: ['module_name', 'criteria']
+            },
+            annotations: {
+              readOnlyHint: true,
+              idempotentHint: true,
+              openWorldHint: true
+            }
+          },
+          {
+            name: 'people_get_timeline',
+            description: 'Get timeline/activity history for a People record including status changes and updates\\n\\n**Prerequisites:** Record ID from people_search_records\\n**Next Steps:** Use timeline data for audit trails and activity analysis\\n**Use Cases:** Employee activity tracking, change auditing, compliance monitoring\\n**Error Recovery:** If timeline empty, verify record has activity history and timeline permissions',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                module_name: { type: 'string', description: 'People module name (e.g., "employees", "departments")' },
+                record_id: { type: 'string', description: 'ID of the People record' },
+                timeline_types: { type: 'array', items: { type: 'string' }, description: 'Types of timeline entries to include' },
+                include_inner_details: { type: 'boolean', description: 'Include detailed inner information' },
+                page: { type: 'number', minimum: 1, description: 'Page number for pagination' },
+                per_page: { type: 'number', minimum: 1, maximum: 200, description: 'Entries per page (max 200)' }
+              },
+              required: ['module_name', 'record_id']
+            }
+          },
+          
+          // === CUSTOMER SERVICE & DESK ===
+          {
+            name: 'desk_get_all_departments',
+            description: 'Get all departments in Zoho Desk with supported entity types and configuration\\n\\n**Prerequisites:** Zoho Desk access with department read permissions\\n**Next Steps:** Use desk_get_entity_fields for entity analysis → desk_search_entities for records\\n**Workflow:** Department discovery → entity field analysis → ticket/contact operations\\n**Error Recovery:** If departments not accessible, verify Desk product access and permissions',
+            inputSchema: {
+              type: 'object',
+              properties: {}
+            }
+          },
+          {
+            name: 'desk_get_entity_fields',
+            description: 'Get field metadata for a specific entity type in a Desk department\\n\\n**Prerequisites:** Department ID from desk_get_all_departments\\n**Next Steps:** Use field details for desk_search_entities criteria and filtering\\n**Common Entities:** tickets, contacts, accounts, agents, products\\n**Error Recovery:** If fields not found, verify department and entity type are valid',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                department_id: { type: 'string', description: 'Department ID (get from desk_get_all_departments)' },
+                entity_type: { type: 'string', description: 'Entity type (e.g., tickets, contacts, accounts, agents, products)' }
+              },
+              required: ['department_id', 'entity_type']
+            }
+          },
+          {
+            name: 'desk_search_entities',
+            description: 'Search entities in a Desk department with flexible filtering and pagination\\n\\n**Prerequisites:** Department ID and entity type, optional field details for targeted searches\\n**Next Steps:** Use desk_get_entity_timeline for record activity history\\n**Common Patterns:** Ticket management, contact lookup, account discovery\\n**Error Recovery:** If no results, broaden search criteria or check entity permissions',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                department_id: { type: 'string', description: 'Department ID (get from desk_get_all_departments)' },
+                entity_type: { type: 'string', description: 'Entity type (e.g., tickets, contacts, accounts, agents, products)' },
+                search_str: { type: 'string', description: 'Global search text across entity fields' },
+                email: { type: 'string', description: 'Search by email address (exact match)' },
+                phone: { type: 'string', description: 'Search by phone number (exact match)' },
+                view_id: { type: 'string', description: 'Optional view ID for filtered results' },
+                sort_by: { type: 'string', description: 'Field to sort results by' },
+                limit: { type: 'number', minimum: 1, maximum: 100, description: 'Number of records to return (max 100)' },
+                from: { type: 'number', minimum: 0, description: 'Starting offset for pagination' },
+                fields: { type: 'array', items: { type: 'string' }, description: 'Specific fields to return' },
+                include: { type: 'array', items: { type: 'string' }, description: 'Related data to include' },
+                auto_paginate: { type: 'boolean', description: 'Automatically paginate through all results' },
+                max_records: { type: 'number', minimum: 1, maximum: 5000, description: 'Maximum records when auto-paginating' }
+              },
+              required: ['department_id', 'entity_type']
+            }
+          },
+          {
+            name: 'desk_get_entity_timeline',
+            description: 'Get timeline/activity history for a specific Desk entity record\\n\\n**Prerequisites:** Department ID, entity type, and record ID from desk_search_entities\\n**Next Steps:** Analyze timeline for support patterns, escalations, and resolution tracking\\n**Use Cases:** Ticket lifecycle analysis, customer interaction history, agent performance\\n**Error Recovery:** If timeline empty, verify record exists and has activity history',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                department_id: { type: 'string', description: 'Department ID (get from desk_get_all_departments)' },
+                entity_type: { type: 'string', description: 'Entity type (e.g., tickets, contacts, accounts)' },
+                record_id: { type: 'string', description: 'Record ID to get timeline for' },
+                limit: { type: 'number', minimum: 1, maximum: 100, description: 'Number of timeline entries (max 100)' },
+                from: { type: 'number', minimum: 0, description: 'Starting offset for pagination' },
+                include: { type: 'array', items: { type: 'string' }, description: 'Additional timeline data to include' }
+              },
+              required: ['department_id', 'entity_type', 'record_id']
+            }
+          },
+          
           // Configuration Management Tools
           {
             name: 'config_list_environments',
@@ -3738,17 +4049,132 @@ export class ZohoMCPServer {
               ]
             };
 
+          // Smart Query Builder Tools
+          case 'get_smart_queries':
+            const allSmartQueries = SmartQueryBuilders.getAllSmartQueries();
+            let filteredQueries = allSmartQueries;
+            
+            if (args?.product) {
+              const productKey = args.product as string;
+              filteredQueries = { [productKey]: allSmartQueries[productKey] || [] };
+            }
+            
+            if (args?.category) {
+              const categoryQueries = SmartQueryBuilders.getQueriesByCategory(args.category as any);
+              filteredQueries = { 'Filtered': categoryQueries };
+            }
+            
+            return this.createEnhancedResponse('get_smart_queries', {
+              available_queries: filteredQueries,
+              total_count: Object.values(filteredQueries).flat().length,
+              categories: ['sales', 'marketing', 'finance', 'hr', 'support', 'analytics'],
+              products: ['CRM', 'Books', 'People', 'Desk']
+            }, args);
+
+          case 'get_smart_query_plan':
+            const queryPlan = SmartQueryBuilders.generateExecutionPlan(args?.query_name as string);
+            
+            if (!queryPlan) {
+              return this.createStandardResponse({
+                error: 'Query not found',
+                message: `Smart query "${args?.query_name}" not found. Use get_smart_queries to see available queries.`,
+                available_queries_count: Object.values(SmartQueryBuilders.getAllSmartQueries()).flat().length
+              });
+            }
+            
+            return this.createEnhancedResponse('get_smart_query_plan', {
+              query_plan: queryPlan,
+              execution_steps: queryPlan.tools_sequence.length,
+              estimated_time: `${queryPlan.tools_sequence.length * 2}-${queryPlan.tools_sequence.length * 5} minutes`,
+              business_impact: queryPlan.business_value
+            }, args);
+
+          case 'list_business_scenarios':
+            const businessScenarios = [
+              {
+                scenario: 'Revenue Forecasting & Pipeline Management',
+                description: 'Predict quarterly revenue and optimize sales pipeline',
+                recommended_queries: ['Hot Leads Pipeline Analysis', 'Sales Pipeline Forecasting'],
+                expected_roi: '25-40% improvement in forecast accuracy',
+                business_impact: 'Better resource planning and quota achievement'
+              },
+              {
+                scenario: 'Customer Retention & Account Health',
+                description: 'Identify at-risk customers and improve retention rates',
+                recommended_queries: ['Customer Relationship Health Check', 'Customer Satisfaction Intelligence'],
+                expected_roi: '20-30% reduction in customer churn',
+                business_impact: 'Increased customer lifetime value and revenue stability'
+              },
+              {
+                scenario: 'Cash Flow Optimization',
+                description: 'Improve cash flow through better collection and payment management',
+                recommended_queries: ['Cash Flow Optimization Analysis', 'Profitable Customer Analysis'],
+                expected_roi: '25-35% improvement in cash flow',
+                business_impact: 'Better working capital management and financial stability'
+              },
+              {
+                scenario: 'Workforce Productivity & Retention',
+                description: 'Optimize employee performance and reduce turnover',
+                recommended_queries: ['Employee Performance Analytics', 'Employee Retention Intelligence'],
+                expected_roi: '20-30% reduction in turnover costs',
+                business_impact: 'Higher productivity and reduced recruitment expenses'
+              },
+              {
+                scenario: 'Support Efficiency & Customer Satisfaction',
+                description: 'Improve support team performance and customer experience',
+                recommended_queries: ['Support Ticket Resolution Analytics', 'Knowledge Base Optimization'],
+                expected_roi: '30-40% improvement in resolution times',
+                business_impact: 'Higher customer satisfaction and reduced support costs'
+              }
+            ];
+            
+            return this.createEnhancedResponse('list_business_scenarios', {
+              business_scenarios: businessScenarios,
+              total_scenarios: businessScenarios.length,
+              implementation_guide: 'Select a scenario → Get smart queries → Execute query plan → Analyze results → Implement improvements'
+            });
+
           // CRM Metadata Tools
           case 'crm_get_all_modules':
             const allModulesResult = await this.metadataTools.getAllModules();
-            return {
-              content: [
-                {
-                  type: 'text',
-                  text: JSON.stringify(allModulesResult, null, 2)
-                }
+            
+            // Apply pagination to prevent token limit issues
+            const page = Number(args?.page) || 1;
+            const perPage = Math.min(Number(args?.per_page) || 20, 50); // Max 50 modules per page
+            const includeSystem = args?.include_system_modules !== false;
+            const includeCustom = args?.include_custom_modules !== false;
+            
+            // Filter modules by type
+            let filteredModules = allModulesResult;
+            if (!includeSystem || !includeCustom) {
+              filteredModules = allModulesResult.filter((module: any) => {
+                const isCustom = module.api_name.includes('__c') || module.module_label?.includes('Custom');
+                return (includeSystem && !isCustom) || (includeCustom && isCustom);
+              });
+            }
+            
+            // Apply pagination
+            const startIndex = (page - 1) * perPage;
+            const endIndex = startIndex + perPage;
+            const paginatedModules = filteredModules.slice(startIndex, endIndex);
+            
+            const paginatedResult = {
+              modules: paginatedModules,
+              pagination: {
+                page: page,
+                per_page: perPage,
+                total_modules: filteredModules.length,
+                total_pages: Math.ceil(filteredModules.length / perPage),
+                has_more: endIndex < filteredModules.length
+              },
+              usage_tips: [
+                'Use pagination to avoid token limits (recommended: 10-20 modules per page)',
+                'Filter by include_system_modules and include_custom_modules for focused results',
+                'Use crm_get_fields next to discover fields for specific modules'
               ]
             };
+            
+            return this.createEnhancedResponse('crm_get_all_modules', paginatedResult);
 
           case 'crm_get_module_details':
             const moduleDetailsResult = await this.metadataTools.getModuleDetails(args as { module_name: string });
@@ -3862,6 +4288,54 @@ export class ZohoMCPServer {
                 {
                   type: 'text',
                   text: JSON.stringify(fieldDetailsResult, null, 2)
+                }
+              ]
+            };
+
+          case 'crm_get_timeline':
+            const timelineParams = GetTimelineParamsSchema.parse(args);
+            const timelineResult = await this.crmRecordsTools.getTimeline(timelineParams);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(timelineResult, null, 2)
+                }
+              ]
+            };
+
+          case 'crm_search_by_timeline':
+            const searchTimelineParams = SearchByTimelineParamsSchema.parse(args);
+            const searchTimelineResult = await this.crmRecordsTools.searchByTimeline(searchTimelineParams);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(searchTimelineResult, null, 2)
+                }
+              ]
+            };
+
+          case 'crm_get_field_changes':
+            const fieldChangesParams = GetFieldChangesParamsSchema.parse(args);
+            const fieldChangesResult = await this.crmRecordsTools.getFieldChanges(fieldChangesParams);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(fieldChangesResult, null, 2)
+                }
+              ]
+            };
+
+          case 'crm_analyze_activity_patterns':
+            const activityPatternsParams = AnalyzeActivityPatternsParamsSchema.parse(args);
+            const activityPatternsResult = await this.crmRecordsTools.analyzeActivityPatterns(activityPatternsParams);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(activityPatternsResult, null, 2)
                 }
               ]
             };
@@ -4218,6 +4692,104 @@ export class ZohoMCPServer {
               ]
             };
 
+          // People Tools
+          case 'people_get_all_modules':
+            const peopleModulesParams = PeopleGetModulesParamsSchema.parse(args);
+            const peopleModulesResult = await this.peopleTools.getAllModules(peopleModulesParams);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(peopleModulesResult, null, 2)
+                }
+              ]
+            };
+
+          case 'people_get_fields':
+            const peopleFieldsParams = PeopleGetFieldsParamsSchema.parse(args);
+            const peopleFieldsResult = await this.peopleTools.getFields(peopleFieldsParams);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(peopleFieldsResult, null, 2)
+                }
+              ]
+            };
+
+          case 'people_search_records':
+            const peopleSearchParams = PeopleSearchRecordsParamsSchema.parse(args);
+            const peopleSearchResult = await this.peopleTools.searchRecords(peopleSearchParams);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(peopleSearchResult, null, 2)
+                }
+              ]
+            };
+
+          case 'people_get_timeline':
+            const peopleTimelineParams = PeopleGetTimelineParamsSchema.parse(args);
+            const peopleTimelineResult = await this.peopleTools.getTimeline(peopleTimelineParams);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(peopleTimelineResult, null, 2)
+                }
+              ]
+            };
+
+          // Desk Tools
+          case 'desk_get_all_departments':
+            const deskDepartmentsParams = DeskGetDepartmentsParamsSchema.parse(args);
+            const deskDepartmentsResult = await this.deskTools.getAllDepartments(deskDepartmentsParams);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(deskDepartmentsResult, null, 2)
+                }
+              ]
+            };
+
+          case 'desk_get_entity_fields':
+            const deskFieldsParams = DeskGetEntityFieldsParamsSchema.parse(args);
+            const deskFieldsResult = await this.deskTools.getEntityFields(deskFieldsParams);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(deskFieldsResult, null, 2)
+                }
+              ]
+            };
+
+          case 'desk_search_entities':
+            const deskSearchParams = DeskSearchEntitiesParamsSchema.parse(args);
+            const deskSearchResult = await this.deskTools.searchEntities(deskSearchParams);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(deskSearchResult, null, 2)
+                }
+              ]
+            };
+
+          case 'desk_get_entity_timeline':
+            const deskTimelineParams = DeskGetEntityTimelineParamsSchema.parse(args);
+            const deskTimelineResult = await this.deskTools.getEntityTimeline(deskTimelineParams);
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(deskTimelineResult, null, 2)
+                }
+              ]
+            };
+
           // Configuration Management Tools
           case 'config_list_environments':
             const environmentsResult = await this.configTools.listEnvironments();
@@ -4384,6 +4956,9 @@ export class ZohoMCPServer {
               { name: 'books_send_invoice_email', category: 'Books - Invoice Management', description: 'Send invoice via email' },
               { name: 'books_get_invoice_pdf', category: 'Books - Invoice Management', description: 'Get invoice as PDF' },
               
+              // Books - Sales Order Management
+              { name: 'books_get_sales_orders', category: 'Books - Sales Order Management', description: 'Get all sales orders from Books' },
+              
               // Books - Credit Note Management
               { name: 'books_get_credit_notes', category: 'Books - Credit Note Management', description: 'Get all credit notes from Books' },
               { name: 'books_get_credit_note', category: 'Books - Credit Note Management', description: 'Get specific credit note details' },
@@ -4450,6 +5025,10 @@ export class ZohoMCPServer {
               { name: 'crm_get_module_details', category: 'CRM - Metadata & Analysis', description: 'Get module details' },
               { name: 'crm_get_module_fields', category: 'CRM - Metadata & Analysis', description: 'Get module fields' },
               { name: 'crm_get_field_details', category: 'CRM - Metadata & Analysis', description: 'Get field details' },
+              { name: 'crm_get_timeline', category: 'CRM - Metadata & Analysis', description: 'Get timeline history for CRM records' },
+              { name: 'crm_search_by_timeline', category: 'CRM - Metadata & Analysis', description: 'Search records by timeline events' },
+              { name: 'crm_get_field_changes', category: 'CRM - Metadata & Analysis', description: 'Track field change history' },
+              { name: 'crm_analyze_activity_patterns', category: 'CRM - Metadata & Analysis', description: 'Analyze activity patterns and trends' },
               { name: 'crm_get_layouts', category: 'CRM - Metadata & Analysis', description: 'Get CRM layouts' },
               { name: 'crm_get_layout_details', category: 'CRM - Metadata & Analysis', description: 'Get layout details' },
               { name: 'crm_update_layout', category: 'CRM - Metadata & Analysis', description: 'Update CRM layout' },
@@ -4486,6 +5065,18 @@ export class ZohoMCPServer {
               { name: 'crm_get_field_relationships', category: 'CRM - Metadata & Analysis', description: 'Get all field relationships in a module' },
               { name: 'crm_get_global_fields', category: 'CRM - Metadata & Analysis', description: 'Get global fields across all modules' },
               
+              // HR & People Management
+              { name: 'people_get_all_modules', category: 'People - HR Management', description: 'Get all available People modules' },
+              { name: 'people_get_fields', category: 'People - HR Management', description: 'Get field metadata for People modules' },
+              { name: 'people_search_records', category: 'People - HR Management', description: 'Search records in People modules' },
+              { name: 'people_get_timeline', category: 'People - HR Management', description: 'Get timeline history for People records' },
+              
+              // Customer Service & Desk
+              { name: 'desk_get_all_departments', category: 'Desk - Customer Service', description: 'Get all Desk departments' },
+              { name: 'desk_get_entity_fields', category: 'Desk - Customer Service', description: 'Get entity field metadata for Desk' },
+              { name: 'desk_search_entities', category: 'Desk - Customer Service', description: 'Search entities in Desk departments' },
+              { name: 'desk_get_entity_timeline', category: 'Desk - Customer Service', description: 'Get entity timeline history for Desk' },
+              
               // Configuration Management
               { name: 'config_list_environments', category: 'Configuration Management', description: 'List all available environments' },
               { name: 'config_switch_environment', category: 'Configuration Management', description: 'Switch to a different environment' },
@@ -4498,6 +5089,11 @@ export class ZohoMCPServer {
               { name: 'config_export_to_env', category: 'Configuration Management', description: 'Export current configuration to .env format' },
               { name: 'config_add_environment', category: 'Configuration Management', description: 'Add a new environment' },
               { name: 'config_remove_environment', category: 'Configuration Management', description: 'Remove an environment' },
+              
+              // Smart Query Builders
+              { name: 'get_smart_queries', category: 'Smart Query Builders', description: 'Get all available smart query builders across Zoho products' },
+              { name: 'get_smart_query_plan', category: 'Smart Query Builders', description: 'Get detailed execution plan for a specific smart query' },
+              { name: 'list_business_scenarios', category: 'Smart Query Builders', description: 'List common business scenarios with recommended solutions' },
               
               // Tool Discovery
               { name: 'list_tools_by_category', category: 'Tool Discovery', description: 'List tools by category' },
@@ -4697,6 +5293,36 @@ export class ZohoMCPServer {
     }
   }
 
+  /**
+   * Create enhanced tool response with workflow intelligence
+   */
+  private createEnhancedResponse(toolName: string, data: any, params?: any): { content: Array<{ type: string; text: string }> } {
+    const enhancedResponse = WorkflowIntelligence.enhanceResponse(toolName, data, params);
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(enhancedResponse, null, 2)
+        }
+      ]
+    };
+  }
+
+  /**
+   * Create standard response (fallback for non-enhanced tools)
+   */
+  private createStandardResponse(data: any): { content: Array<{ type: string; text: string }> } {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(data, null, 2)
+        }
+      ]
+    };
+  }
+
   private getCategoryDescription(category: string): string {
     const descriptions: Record<string, string> = {
       'Data Synchronization': 'Tools for syncing data between CRM and Books modules',
@@ -4713,6 +5339,7 @@ export class ZohoMCPServer {
       'CRM - Calendar Management': 'Tools for managing events and calendar items in CRM',
       'CRM - Metadata & Analysis': 'Tools for analyzing CRM structure, fields, and metadata',
       'Configuration Management': 'Tools for managing multi-environment configurations',
+      'Smart Query Builders': 'Pre-built business intelligence workflows combining multiple tools for common scenarios',
       'Tool Discovery': 'Tools for discovering and exploring available functionality'
     };
     

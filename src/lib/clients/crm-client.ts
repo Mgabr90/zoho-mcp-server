@@ -657,6 +657,10 @@ export class ZohoCRMClient {
       page_token?: string;
       auto_paginate?: boolean;
       max_records?: number;
+      // Subform support based on CRM API v8
+      subform_name?: string;
+      parent_record_id?: string;
+      include_subforms?: boolean;
     } = {}
   ): Promise<ZohoApiResponse<ZohoCRMRecord[]>> {
     try {
@@ -669,7 +673,26 @@ export class ZohoCRMClient {
       if (options.sort_order) params.append('sort_order', options.sort_order);
       if (options.page_token) params.append('page_token', options.page_token);
       
-      const response = await this.axiosInstance.get(`/${module}?${params}`);
+      // Handle subform requests based on CRM API v8 documentation
+      let url: string;
+      if (options.subform_name && options.parent_record_id) {
+        // Get subform records: /{module}/{record_id}/{subform_name}
+        url = params.toString()
+          ? `/${module}/${options.parent_record_id}/${options.subform_name}?${params.toString()}`
+          : `/${module}/${options.parent_record_id}/${options.subform_name}`;
+      } else if (options.parent_record_id) {
+        // Get specific record with optional subforms: /{module}/{record_id}
+        url = params.toString()
+          ? `/${module}/${options.parent_record_id}?${params.toString()}`
+          : `/${module}/${options.parent_record_id}`;
+      } else {
+        // Standard module records: /{module}
+        url = params.toString()
+          ? `/${module}?${params.toString()}`
+          : `/${module}`;
+      }
+
+      const response = await this.axiosInstance.get(url);
       return response.data;
     } catch (error) {
       throw this.handleError(error, `Failed to get records from ${module}`);
@@ -789,10 +812,29 @@ export class ZohoCRMClient {
   /**
    * Create a new record
    */
-  async createRecord(module: string, data: Partial<ZohoCRMRecord>): Promise<ZohoCRMRecord> {
+  async createRecord(
+    module: string, 
+    data: Partial<ZohoCRMRecord>,
+    options?: {
+      // Subform support based on CRM API v8 documentation
+      subform_data?: Array<{
+        subform_name: string;
+        records: Record<string, any>[];
+      }>;
+    }
+  ): Promise<ZohoCRMRecord> {
     try {
+      const recordData: any = { ...data };
+      
+      // Add subform data based on CRM API v8 format
+      if (options?.subform_data) {
+        options.subform_data.forEach(({ subform_name, records }) => {
+          recordData[subform_name] = records;
+        });
+      }
+      
       const response = await this.axiosInstance.post(`/${module}`, {
-        data: [data]
+        data: [recordData]
       });
       return response.data.data[0].details;
     } catch (error) {
@@ -806,11 +848,31 @@ export class ZohoCRMClient {
   async updateRecord(
     module: string, 
     recordId: string, 
-    data: Partial<ZohoCRMRecord>
+    data: Partial<ZohoCRMRecord>,
+    options?: {
+      // Subform support based on CRM API v8 documentation
+      subform_updates?: Array<{
+        subform_name: string;
+        records: Array<{
+          id?: string; // Include ID for existing subform records
+          _delete?: null; // Set to null to delete specific subform records
+          [key: string]: any;
+        }>;
+      }>;
+    }
   ): Promise<ZohoCRMRecord> {
     try {
+      const recordData: any = { id: recordId, ...data };
+      
+      // Add subform updates based on CRM API v8 format
+      if (options?.subform_updates) {
+        options.subform_updates.forEach(({ subform_name, records }) => {
+          recordData[subform_name] = records;
+        });
+      }
+      
       const response = await this.axiosInstance.put(`/${module}/${recordId}`, {
-        data: [{ id: recordId, ...data }]
+        data: [recordData]
       });
       return response.data.data[0].details;
     } catch (error) {
@@ -842,6 +904,9 @@ export class ZohoCRMClient {
       page_token?: string;
       auto_paginate?: boolean;
       max_records?: number;
+      // Subform support based on CRM API v8
+      include_subforms?: boolean;
+      search_subforms?: boolean;
     } = {}
   ): Promise<ZohoApiResponse<ZohoCRMRecord[]>> {
     try {
@@ -853,7 +918,11 @@ export class ZohoCRMClient {
       if (options.per_page) params.append('per_page', options.per_page.toString());
       if (options.page_token) params.append('page_token', options.page_token);
       
-      const response = await this.axiosInstance.get(`/${module}/search?${params}`);
+      const url = params.toString()
+        ? `/${module}/search?${params.toString()}`
+        : `/${module}/search`;
+
+      const response = await this.axiosInstance.get(url);
       return response.data;
     } catch (error) {
       throw this.handleError(error, `Failed to search records in ${module}`);
@@ -1294,6 +1363,297 @@ export class ZohoCRMClient {
   /**
    * Rate limiting delay with exponential backoff
    */
+  /**
+   * Create multiple records in a module (bulk operation)
+   */
+  async createRecordsBulk(module: string, records: Partial<ZohoCRMRecord>[], options?: {
+    trigger_workflow?: boolean;
+    duplicate_check_fields?: string[];
+  }): Promise<any> {
+    try {
+      if (records.length === 0) {
+        throw new Error('At least one record must be provided');
+      }
+      
+      if (records.length > 100) {
+        throw new Error('Cannot create more than 100 records at once');
+      }
+
+      const requestBody: any = {
+        data: records
+      };
+
+      if (options?.trigger_workflow !== undefined) {
+        requestBody.trigger = options.trigger_workflow ? ['workflow'] : [];
+      }
+
+      if (options?.duplicate_check_fields && options.duplicate_check_fields.length > 0) {
+        requestBody.duplicate_check_fields = options.duplicate_check_fields;
+      }
+
+      const response = await this.axiosInstance.post(`/${module}`, requestBody);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error, `Failed to create records in ${module}`);
+    }
+  }
+
+  /**
+   * Update multiple records in a module (bulk operation)
+   */
+  async updateRecordsBulk(module: string, records: Array<{ id: string } & Partial<ZohoCRMRecord>>, options?: {
+    trigger_workflow?: boolean;
+  }): Promise<any> {
+    try {
+      if (records.length === 0) {
+        throw new Error('At least one record must be provided');
+      }
+      
+      if (records.length > 100) {
+        throw new Error('Cannot update more than 100 records at once');
+      }
+
+      // Validate that all records have an ID
+      for (const record of records) {
+        if (!record.id) {
+          throw new Error('All records must have an ID field for bulk update');
+        }
+      }
+
+      const requestBody: any = {
+        data: records
+      };
+
+      if (options?.trigger_workflow !== undefined) {
+        requestBody.trigger = options.trigger_workflow ? ['workflow'] : [];
+      }
+
+      const response = await this.axiosInstance.put(`/${module}`, requestBody);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error, `Failed to update records in ${module}`);
+    }
+  }
+
+  /**
+   * Delete multiple records from a module (bulk operation)
+   */
+  async deleteRecordsBulk(module: string, recordIds: string[], options?: {
+    trigger_workflow?: boolean;
+  }): Promise<any> {
+    try {
+      if (recordIds.length === 0) {
+        throw new Error('At least one record ID must be provided');
+      }
+      
+      if (recordIds.length > 100) {
+        throw new Error('Cannot delete more than 100 records at once');
+      }
+
+      const params = new URLSearchParams();
+      params.append('ids', recordIds.join(','));
+      
+      if (options?.trigger_workflow !== undefined) {
+        params.append('wf_trigger', options.trigger_workflow.toString());
+      }
+
+      const response = await this.axiosInstance.delete(`/${module}?${params.toString()}`);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error, `Failed to delete records from ${module}`);
+    }
+  }
+
+  /**
+   * Upsert records (create or update based on duplicate check)
+   */
+  async upsertRecords(module: string, records: Partial<ZohoCRMRecord>[], duplicateCheckFields: string[], options?: {
+    trigger_workflow?: boolean;
+  }): Promise<any> {
+    try {
+      if (records.length === 0) {
+        throw new Error('At least one record must be provided');
+      }
+      
+      if (records.length > 100) {
+        throw new Error('Cannot upsert more than 100 records at once');
+      }
+
+      if (!duplicateCheckFields || duplicateCheckFields.length === 0) {
+        throw new Error('Duplicate check fields are required for upsert operation');
+      }
+
+      const requestBody: any = {
+        data: records,
+        duplicate_check_fields: duplicateCheckFields
+      };
+
+      if (options?.trigger_workflow !== undefined) {
+        requestBody.trigger = options.trigger_workflow ? ['workflow'] : [];
+      }
+
+      const response = await this.axiosInstance.post(`/${module}/upsert`, requestBody);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error, `Failed to upsert records in ${module}`);
+    }
+  }
+
+  /**
+   * Clone a record
+   */
+  async cloneRecord(module: string, recordId: string, options?: {
+    trigger_workflow?: boolean;
+  }): Promise<any> {
+    try {
+      const requestBody: any = {};
+
+      if (options?.trigger_workflow !== undefined) {
+        requestBody.trigger = options.trigger_workflow ? ['workflow'] : [];
+      }
+
+      const response = await this.axiosInstance.post(`/${module}/${recordId}/actions/clone`, requestBody);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error, `Failed to clone record ${recordId} in ${module}`);
+    }
+  }
+
+  /**
+   * Get rich text fields for a record
+   */
+  async getRichTextFields(module: string, recordId: string, fields?: string[]): Promise<any> {
+    try {
+      const params = new URLSearchParams();
+      if (fields && fields.length > 0) {
+        params.append('fields', fields.join(','));
+      }
+
+      const url = params.toString()
+        ? `/${module}/${recordId}/rich_text?${params.toString()}`
+        : `/${module}/${recordId}/rich_text`;
+
+      const response = await this.axiosInstance.get(url);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error, `Failed to get rich text fields for record ${recordId} in ${module}`);
+    }
+  }
+
+  /**
+   * Get timeline for a record
+   */
+  async getTimeline(module: string, recordId: string, options?: {
+    timeline_types?: string[];
+    include_inner_details?: boolean;
+    page?: number;
+    per_page?: number;
+  }): Promise<any> {
+    try {
+      const params = new URLSearchParams();
+      
+      if (options?.timeline_types && options.timeline_types.length > 0) {
+        params.append('timeline_types', options.timeline_types.join(','));
+      }
+      
+      if (options?.include_inner_details !== undefined) {
+        params.append('include_inner_details', options.include_inner_details.toString());
+      }
+      
+      if (options?.page) {
+        params.append('page', options.page.toString());
+      }
+      
+      if (options?.per_page) {
+        params.append('per_page', Math.min(options.per_page, 200).toString());
+      }
+
+      const url = params.toString()
+        ? `/${module}/${recordId}/__timeline?${params.toString()}`
+        : `/${module}/${recordId}/__timeline`;
+
+      const response = await this.axiosInstance.get(url);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error, `Failed to get timeline for record ${recordId} in ${module}`);
+    }
+  }
+
+  /**
+   * Get deleted records from a module
+   */
+  async getDeletedRecords(module: string, type: 'all' | 'recycle' | 'permanent', options?: {
+    page?: number;
+    per_page?: number;
+  }): Promise<any> {
+    try {
+      const params = new URLSearchParams();
+      params.append('type', type);
+      
+      if (options?.page) {
+        params.append('page', options.page.toString());
+      }
+      
+      if (options?.per_page) {
+        params.append('per_page', Math.min(options.per_page, 200).toString());
+      }
+
+      const response = await this.axiosInstance.get(`/${module}/deleted?${params.toString()}`);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error, `Failed to get deleted records from ${module}`);
+    }
+  }
+
+  /**
+   * Get record count in a module
+   */
+  async getRecordCount(module: string, options?: {
+    criteria?: string;
+    email?: string;
+    phone?: string;
+    word?: string;
+    converted?: string;
+    approved?: string;
+  }): Promise<any> {
+    try {
+      const params = new URLSearchParams();
+      
+      if (options?.criteria) {
+        params.append('criteria', options.criteria);
+      }
+      
+      if (options?.email) {
+        params.append('email', options.email);
+      }
+      
+      if (options?.phone) {
+        params.append('phone', options.phone);
+      }
+      
+      if (options?.word) {
+        params.append('word', options.word);
+      }
+      
+      if (options?.converted) {
+        params.append('converted', options.converted);
+      }
+      
+      if (options?.approved) {
+        params.append('approved', options.approved);
+      }
+
+      const url = params.toString()
+        ? `/${module}/actions/count?${params.toString()}`
+        : `/${module}/actions/count`;
+
+      const response = await this.axiosInstance.get(url);
+      return response.data;
+    } catch (error: any) {
+      throw this.handleError(error, `Failed to get record count for ${module}`);
+    }
+  }
+
   private async rateLimitDelay(requestCount: number): Promise<void> {
     if (requestCount === 0) return;
     

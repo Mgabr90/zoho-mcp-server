@@ -1,5 +1,5 @@
-import { ZohoCRMClient } from '../clients/crm-client';
-import { ZohoCRMRecord } from '../types';
+import { ZohoCRMClient } from '../lib/clients/crm-client';
+import { ZohoCRMRecord } from '../lib/types';
 
 export interface GenericModuleAnalysis {
   total_count: number;

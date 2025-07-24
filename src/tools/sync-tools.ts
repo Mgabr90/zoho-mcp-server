@@ -1,5 +1,5 @@
-import { ZohoCRMClient } from '../clients/crm-client';
-import { ZohoBooksClient } from '../clients/books-client';
+import { ZohoCRMClient } from '../lib/clients/crm-client';
+import { ZohoBooksClient } from '../lib/clients/books-client';
 import { 
   SyncParams,
   CreateInvoiceParams,
@@ -7,7 +7,7 @@ import {
   ZohoCRMRecord,
   ZohoBooksCustomer,
   ZohoBooksInvoice
-} from '../types';
+} from '../lib/types';
 
 export class ZohoSyncTools {
   constructor(

@@ -1,5 +1,28 @@
 import { z } from 'zod';
 
+// Enhanced Tool Response Types
+export interface WorkflowContext {
+  current_step: string;
+  completion_percentage: number;
+  next_recommended_actions: string[];
+  workflow_type: 'discovery' | 'search' | 'analysis' | 'financial' | 'hr' | 'support';
+}
+
+export interface QuickAction {
+  tool_name: string;
+  description: string;
+  suggested_params: Record<string, any>;
+  priority: 'high' | 'medium' | 'low';
+}
+
+export interface EnhancedToolResponse {
+  data: any;
+  suggested_next_tools: string[];
+  workflow_context: WorkflowContext;
+  quick_actions?: QuickAction[];
+  workflow_tips?: string[];
+}
+
 // Zoho Common Types
 export interface ZohoTokenResponse {
   access_token: string;

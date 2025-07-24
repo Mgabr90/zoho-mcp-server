@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { ZohoBooksClient } from '../clients/books-client';
-import { ZohoBooksItem, ZohoBooksEstimate, ZohoBooksPayment, createToolErrorResponse } from '../types';
+import { ZohoBooksClient } from '../lib/clients/books-client';
+import { ZohoBooksItem, ZohoBooksEstimate, ZohoBooksPayment, createToolErrorResponse } from '../lib/types';
 
 // Schema definitions for tool parameters
 export const ItemParamsSchema = z.object({

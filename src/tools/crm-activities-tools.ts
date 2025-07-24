@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { ZohoCRMClient } from '../clients/crm-client';
-import { ZohoCRMTask, ZohoCRMEvent, ZohoCRMNote, ZohoCRMAttachment, createToolErrorResponse } from '../types';
+import { ZohoCRMClient } from '../lib/clients/crm-client';
+import { ZohoCRMTask, ZohoCRMEvent, ZohoCRMNote, ZohoCRMAttachment, createToolErrorResponse } from '../lib/types';
 
 // Schema definitions for CRM Activities tools
 export const TaskParamsSchema = z.object({
