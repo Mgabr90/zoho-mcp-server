@@ -1,5 +1,5 @@
-import { ZohoAuthManager } from '../../src/auth/oauth-manager';
-import { ZohoConfig } from '../../src/types';
+import { ZohoAuthManager } from '../../src/lib/auth/oauth-manager';
+import { ZohoConfig } from '../../src/lib/types';
 import axios from 'axios';
 
 // Mock axios

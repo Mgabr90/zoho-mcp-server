@@ -1,11 +1,11 @@
 import { ZohoSyncTools } from '../../src/tools/sync-tools';
-import { ZohoCRMClient } from '../../src/clients/crm-client';
-import { ZohoBooksClient } from '../../src/clients/books-client';
-import { ZohoCRMRecord, ZohoBooksCustomer } from '../../src/types';
+import { ZohoCRMClient } from '../../src/lib/clients/crm-client';
+import { ZohoBooksClient } from '../../src/lib/clients/books-client';
+import { ZohoCRMRecord, ZohoBooksCustomer } from '../../src/lib/types';
 
 // Mock the clients
-jest.mock('../../src/clients/crm-client');
-jest.mock('../../src/clients/books-client');
+jest.mock('../../src/lib/clients/crm-client');
+jest.mock('../../src/lib/clients/books-client');
 
 describe('ZohoSyncTools', () => {
   let syncTools: ZohoSyncTools;

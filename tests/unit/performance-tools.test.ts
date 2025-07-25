@@ -1,12 +1,12 @@
 import { BooksCustomersTools } from '../../src/tools/books-tools';
-import { ZohoBooksClient } from '../../src/clients/books-client';
-import { ZohoConfigManager } from '../../src/utils/config-manager';
-import { ZohoBooksCustomer } from '../../src/types';
+import { ZohoBooksClient } from '../../src/lib/clients/books-client';
+import { ZohoConfigManager } from '../../src/lib/utils/config-manager';
+import { ZohoBooksCustomer } from '../../src/lib/types';
 import path from 'path';
 
 // Mock external dependencies
 jest.mock('axios');
-jest.mock('../../src/clients/books-client');
+jest.mock('../../src/lib/clients/books-client');
 
 describe('MCP Tools Performance Tests', () => {
   let booksCustomersTools: BooksCustomersTools;

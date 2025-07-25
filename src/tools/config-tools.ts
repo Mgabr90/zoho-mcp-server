@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { ZohoConfigManager } from '../lib/utils/config-manager.js';
-import { ZohoConfigProfile } from '../lib/types/index.js';
-import { ZohoBooksClient } from '../lib/clients/books-client.js';
-import { ZohoAuthManager } from '../lib/auth/oauth-manager.js';
+import { ZohoConfigManager } from '../lib/utils/config-manager';
+import { ZohoConfigProfile } from '../lib/types/index';
+import { ZohoBooksClient } from '../lib/clients/books-client';
+import { ZohoAuthManager } from '../lib/auth/oauth-manager';
 
 export class ConfigManagementTools {
   private configManager: ZohoConfigManager;

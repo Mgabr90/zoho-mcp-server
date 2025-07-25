@@ -1,15 +1,15 @@
 import { BooksCustomersTools } from '../../src/tools/books-tools';
 import { CRMTasksTools } from '../../src/tools/crm-activities-tools';
-import { ZohoBooksClient } from '../../src/clients/books-client';
-import { ZohoCRMClient } from '../../src/clients/crm-client';
-import { ZohoConfigManager } from '../../src/utils/config-manager';
-import { ZohoBooksCustomer, ZohoCRMTask } from '../../src/types';
+import { ZohoBooksClient } from '../../src/lib/clients/books-client';
+import { ZohoCRMClient } from '../../src/lib/clients/crm-client';
+import { ZohoConfigManager } from '../../src/lib/utils/config-manager';
+import { ZohoBooksCustomer, ZohoCRMTask } from '../../src/lib/types';
 import path from 'path';
 
 // Mock external dependencies
 jest.mock('axios');
-jest.mock('../../src/clients/books-client');
-jest.mock('../../src/clients/crm-client');
+jest.mock('../../src/lib/clients/books-client');
+jest.mock('../../src/lib/clients/crm-client');
 
 describe('MCP Tools Integration Tests', () => {
   let booksCustomersTools: BooksCustomersTools;

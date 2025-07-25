@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ZohoPeopleClient, ZohoPeopleRecord } from '../lib/clients/people-client.js';
+import { ZohoPeopleClient, ZohoPeopleRecord } from '../lib/clients/people-client';
 
 export interface PeopleGetModulesParams {
   // No parameters needed - returns all available People modules

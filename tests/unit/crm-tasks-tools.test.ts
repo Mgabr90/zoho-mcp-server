@@ -1,6 +1,6 @@
 import { CRMTasksTools } from '../../src/tools/crm-activities-tools';
-import { ZohoCRMClient } from '../../src/clients/crm-client';
-import { ZohoCRMTask } from '../../src/types';
+import { ZohoCRMClient } from '../../src/lib/clients/crm-client';
+import { ZohoCRMTask } from '../../src/lib/types';
 
 // Create a simpler mock that satisfies the interface
 const mockCRMClient = {

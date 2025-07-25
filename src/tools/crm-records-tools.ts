@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { ZohoCRMClient } from '../lib/clients/crm-client.js';
-import { ZohoCRMRecord } from '../lib/types/index.js';
+import { ZohoCRMClient } from '../lib/clients/crm-client';
+import { ZohoCRMRecord } from '../lib/types/index';
 
 export interface CreateRecordParams {
   module_name: string;

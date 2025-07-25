@@ -1,9 +1,9 @@
 import { BooksItemsTools } from '../../src/tools/books-tools';
-import { ZohoBooksClient } from '../../src/clients/books-client';
-import { ZohoBooksItem } from '../../src/types';
+import { ZohoBooksClient } from '../../src/lib/clients/books-client';
+import { ZohoBooksItem } from '../../src/lib/types';
 
 // Mock the Books client
-jest.mock('../../src/clients/books-client');
+jest.mock('../../src/lib/clients/books-client');
 
 describe('BooksItemsTools', () => {
   let booksItemsTools: BooksItemsTools;
